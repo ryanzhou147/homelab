@@ -1,0 +1,79 @@
+# Home lab: S3 storage, music, video and a hub page behind one login, reachable only over
+# Tailscale. Caddy is the single entrance on the PC's Tailscale address; every service
+# listens on 127.0.0.1 only.
+
+x-local: &local
+  restart: unless-stopped
+
+services:
+  caddy:
+    <<: *local
+    image: caddy:2.11.7
+    network_mode: host
+    environment:
+      HOST: ${HOST}
+      TS_IP: ${TS_IP}
+      TLS_MODE: ${TLS_MODE:-tailscale}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./hub:/srv/hub:ro
+      - ${DATA}/caddy:/data
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+
+  authelia:
+    <<: *local
+    image: authelia/authelia:4.39.28
+    ports: ["127.0.0.1:9091:9091"]
+    environment:
+      X_HOST: ${HOST}
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE: /secrets/authelia_jwt
+      AUTHELIA_SESSION_SECRET_FILE: /secrets/authelia_session
+      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: /secrets/authelia_storage
+      AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE: /secrets/authelia_oidc_hmac
+      X_AUTHELIA_CONFIG_FILTERS: template
+    volumes:
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ${DATA}/authelia:/data
+      - ${DATA}/secrets:/secrets:ro
+
+  navidrome:
+    <<: *local
+    image: deluan/navidrome:0.64.2
+    ports: ["127.0.0.1:4533:4533"]
+    environment:
+      ND_BASEURL: /music
+      ND_MUSICFOLDER: /music
+      ND_EXTAUTH_USERHEADER: Remote-User
+      # Checked against the proxy's connection address: Caddy's requests arrive from the Docker
+      # gateway. Caddy also strips any Remote-User header a visitor sends.
+      ND_EXTAUTH_TRUSTEDSOURCES: 172.16.0.0/12
+      ND_SCANSCHEDULE: 1h
+      ND_ENABLEINSIGHTSCOLLECTOR: "false"
+    volumes:
+      - ${DATA}/navidrome:/data
+      - ${DATA}/media/music:/music:ro
+
+  garage:
+    <<: *local
+    image: dxflrs/garage:v2.4.1
+    ports: ["127.0.0.1:3900:3900", "127.0.0.1:3903:3903"]
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - ${DATA}/garage/meta:/var/lib/garage/meta
+      - ${DATA}/garage/data:/var/lib/garage/data
+      - ${DATA}/secrets:/secrets:ro
+
+  garage-webui:
+    <<: *local
+    image: khairul169/garage-webui:1.1.0
+    ports: ["127.0.0.1:3909:3909"]
+    environment:
+      BASE_PATH: /storage
+      API_BASE_URL: http://garage:3903
+      S3_ENDPOINT_URL: http://garage:3900
+    # API_ADMIN_KEY: the web UI cannot read Garage's admin_token_file itself.
+    env_file: ${DATA}/secrets/garage-webui.env
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - ${DATA}/secrets:/secrets:ro
+    depends_on: [garage]

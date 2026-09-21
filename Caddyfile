@@ -1,0 +1,52 @@
+# One entrance on the PC's Tailscale address. Certificates come from the local tailscaled
+# (enable HTTPS Certificates in the Tailscale admin), or Caddy's own CA with TLS_MODE=internal.
+{
+	admin off
+	auto_https disable_redirects
+}
+
+(login) {
+	forward_auth 127.0.0.1:9091 {
+		uri /auth/api/authz/forward-auth
+		copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+	}
+}
+
+{$HOST}:443 {
+	bind {$TS_IP}
+	tls {$TLS_MODE:tailscale}
+	encode zstd gzip
+	# Identity headers come only from Authelia (forward_auth below), never from the visitor.
+	request_header -Remote-User
+	request_header -Remote-Groups
+	request_header -Remote-Name
+	request_header -Remote-Email
+
+	handle /auth* {
+		reverse_proxy 127.0.0.1:9091
+	}
+	# Subsonic API used by music apps: they sign in with Navidrome's own app password.
+	handle /music/rest/* {
+		reverse_proxy 127.0.0.1:4533
+	}
+	handle /music* {
+		import login
+		reverse_proxy 127.0.0.1:4533
+	}
+	handle /storage* {
+		import login
+		reverse_proxy 127.0.0.1:3909
+	}
+	handle {
+		import login
+		root * /srv/hub
+		file_server
+	}
+}
+
+# S3 API for code and backup tools: authenticated by S3 access keys, not the login page.
+{$HOST}:8443 {
+	bind {$TS_IP}
+	tls {$TLS_MODE:tailscale}
+	reverse_proxy 127.0.0.1:3900
+}
