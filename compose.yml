@@ -18,6 +18,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./hub:/srv/hub:ro
       - ${DATA}/caddy:/data
+      - ${DATA}/sockets:/sockets
       - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
 
   authelia:
@@ -39,19 +40,21 @@ services:
   navidrome:
     <<: *local
     image: deluan/navidrome:0.64.2
-    ports: ["127.0.0.1:4533:4533"]
+    # No TCP port: Navidrome listens on a root-owned socket that only Caddy mounts, so no other
+    # program on the PC can reach it and forge the Remote-User login header.
     environment:
+      ND_ADDRESS: unix:/sockets/navidrome.sock
+      ND_UNIXSOCKETPERM: "0660"
       ND_BASEURL: /music
       ND_MUSICFOLDER: /music
       ND_EXTAUTH_USERHEADER: Remote-User
-      # Checked against the proxy's connection address: Caddy's requests arrive from the Docker
-      # gateway. Caddy also strips any Remote-User header a visitor sends.
-      ND_EXTAUTH_TRUSTEDSOURCES: 172.16.0.0/12
+      ND_EXTAUTH_TRUSTEDSOURCES: "@"
       ND_SCANSCHEDULE: 1h
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
     volumes:
       - ${DATA}/navidrome:/data
       - ${DATA}/media/music:/music:ro
+      - ${DATA}/sockets:/sockets
 
   garage:
     <<: *local

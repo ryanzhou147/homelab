@@ -14,6 +14,14 @@ authentication_backend:
 access_control:
   default_policy: deny
   rules:
+    # Storage admin holds Garage's admin token: only the admins group may open it.
+    - domain: '{{ env "X_HOST" }}'
+      resources: ['^/storage([/?].*)?$']
+      subject: 'group:admins'
+      policy: one_factor
+    - domain: '{{ env "X_HOST" }}'
+      resources: ['^/storage([/?].*)?$']
+      policy: deny
     - domain: '{{ env "X_HOST" }}'
       policy: one_factor
 session:

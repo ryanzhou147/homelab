@@ -27,11 +27,11 @@
 	}
 	# Subsonic API used by music apps: they sign in with Navidrome's own app password.
 	handle /music/rest/* {
-		reverse_proxy 127.0.0.1:4533
+		reverse_proxy unix//sockets/navidrome.sock
 	}
 	handle /music* {
 		import login
-		reverse_proxy 127.0.0.1:4533
+		reverse_proxy unix//sockets/navidrome.sock
 	}
 	handle /storage* {
 		import login
