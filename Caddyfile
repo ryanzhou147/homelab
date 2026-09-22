@@ -16,6 +16,14 @@
 	bind {$TS_IP}
 	tls {$TLS_MODE:tailscale}
 	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
 	# Identity headers come only from Authelia (forward_auth below), never from the visitor.
 	request_header -Remote-User
 	request_header -Remote-Groups
@@ -33,9 +41,20 @@
 		import login
 		reverse_proxy unix//sockets/navidrome.sock
 	}
+	# Jellyfin keeps its own accounts (phone and TV apps need them); browsers sign in through
+	# Authelia with its SSO plugin.
+	handle /video* {
+		reverse_proxy 127.0.0.1:8096
+	}
 	handle /storage* {
-		import login
-		reverse_proxy 127.0.0.1:3909
+		# Second check after Caddy's own routing, so the admin rule cannot be dodged by an
+		# address Authelia and Caddy read differently. Remote-Groups comes only from Authelia.
+		route {
+			import login
+			@notadmin not header_regexp Remote-Groups (^|,)\s*admins\s*(,|$)
+			respond @notadmin "Forbidden" 403
+			reverse_proxy 127.0.0.1:3909
+		}
 	}
 	handle {
 		import login

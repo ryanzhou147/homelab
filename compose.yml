@@ -4,6 +4,8 @@
 
 x-local: &local
   restart: unless-stopped
+  # No program inside a container can gain privileges through setuid binaries.
+  security_opt: ["no-new-privileges:true"]
 
 services:
   caddy:
@@ -40,6 +42,7 @@ services:
   navidrome:
     <<: *local
     image: deluan/navidrome:0.64.2
+    cap_drop: [ALL]
     # No TCP port: Navidrome listens on a root-owned socket that only Caddy mounts, so no other
     # program on the PC can reach it and forge the Remote-User login header.
     environment:
@@ -59,7 +62,8 @@ services:
   garage:
     <<: *local
     image: dxflrs/garage:v2.4.1
-    ports: ["127.0.0.1:3900:3900", "127.0.0.1:3903:3903"]
+    # Only the S3 API is published; the admin API (3903) stays on the compose network for the web UI.
+    ports: ["127.0.0.1:3900:3900"]
     volumes:
       - ./garage/garage.toml:/etc/garage.toml:ro
       - ${DATA}/garage/meta:/var/lib/garage/meta
@@ -69,6 +73,7 @@ services:
   garage-webui:
     <<: *local
     image: khairul169/garage-webui:1.1.0
+    cap_drop: [ALL]
     ports: ["127.0.0.1:3909:3909"]
     environment:
       BASE_PATH: /storage
@@ -80,3 +85,24 @@ services:
       - ./garage/garage.toml:/etc/garage.toml:ro
       - ${DATA}/secrets:/secrets:ro
     depends_on: [garage]
+
+  jellyfin:
+    <<: *local
+    image: jellyfin/jellyfin:12.2
+    user: "1000:1000"
+    cap_drop: [ALL]
+    ports: ["127.0.0.1:8096:8096"]
+    environment:
+      JELLYFIN_PublishedServerUrl: https://${HOST}/video
+    # The SSO plugin calls Authelia at https://${HOST}/auth; resolve that to the Tailscale IP.
+    extra_hosts:
+      - "${HOST}:${TS_IP}"
+    # Transcodes on the Ryzen's built-in graphics; the RTX 3060 is busy with the 27B.
+    devices:
+      - /dev/dri/renderD129:/dev/dri/renderD129
+    group_add:
+      - "${RENDER_GID}"
+    volumes:
+      - ${DATA}/jellyfin/config:/config
+      - ${DATA}/jellyfin/cache:/cache
+      - ${DATA}/media/video:/media/video:ro
