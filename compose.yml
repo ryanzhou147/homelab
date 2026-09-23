@@ -15,7 +15,6 @@ services:
     environment:
       HOST: ${HOST}
       TS_IP: ${TS_IP}
-      TLS_MODE: ${TLS_MODE:-tailscale}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./hub:/srv/hub:ro
@@ -106,3 +105,12 @@ services:
       - ${DATA}/jellyfin/config:/config
       - ${DATA}/jellyfin/cache:/cache
       - ${DATA}/media/video:/media/video:ro
+
+# A fixed range so a single firewall rule can let these containers reach Caddy on the Tailscale
+# address (Jellyfin's SSO plugin talks to Authelia that way):
+#   sudo ufw allow from 172.30.77.0/24 to <TS_IP> port 443 proto tcp
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.77.0/24
