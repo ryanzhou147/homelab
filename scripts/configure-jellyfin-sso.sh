@@ -28,6 +28,11 @@ PY
 curl -sf -X POST "$J/sso/OID/Add/authelia" -H "$H" -H 'Content-Type: application/json' -d @/tmp/jf_sso.json
 rm -f /tmp/jf_sso.json
 
+# Show "Home lab" instead of the container ID in Jellyfin's header and in the apps.
+curl -sf "$J/System/Configuration" -H "$H" |
+  python3 -c 'import json,sys; c=json.load(sys.stdin); c["ServerName"]="Home lab"; json.dump(c,sys.stdout)' |
+  curl -sf -X POST "$J/System/Configuration" -H "$H" -H 'Content-Type: application/json' -d @-
+
 # Sign-in button on Jellyfin's login page.
 curl -sf "$J/System/Configuration/branding" -H "$H" | python3 -c '
 import json, sys
