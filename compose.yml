@@ -55,7 +55,7 @@ services:
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
     volumes:
       - ${DATA}/navidrome:/data
-      - ${DATA}/media/music:/music:ro
+      - ${MEDIA}/music:/music:ro
       - ${DATA}/sockets:/sockets
 
   garage:
@@ -104,7 +104,7 @@ services:
     volumes:
       - ${DATA}/jellyfin/config:/config
       - ${DATA}/jellyfin/cache:/cache
-      - ${DATA}/media/video:/media/video:ro
+      - ${MEDIA}/video:/media/video:ro
 
 # A fixed range so a single firewall rule can let these containers reach Caddy on the Tailscale
 # address (Jellyfin's SSO plugin talks to Authelia that way):
