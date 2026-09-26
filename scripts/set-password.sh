@@ -6,7 +6,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source .env
 USER_NAME=${1:-admin}
-S="$DATA/secrets"
 USERS="$DATA/authelia/users.yml"
 J=http://127.0.0.1:8096/video
 JAUTH='MediaBrowser Client="homelab-setup", Device="cli", DeviceId="homelab-setup", Version="1.0"'
@@ -16,6 +15,8 @@ read -rsp "New password for $USER_NAME: " pw; echo
 read -rsp "Again: " pw2; echo
 [ "$pw" = "$pw2" ] || { echo "The passwords differ."; exit 1; }
 [ ${#pw} -ge $MIN_LENGTH ] || { echo "Use at least $MIN_LENGTH characters."; exit 1; }
+# Jellyfin needs the admin's current password to make the change. Nothing stores it.
+read -rsp "Current password of the admin (admin): " admin_pw; echo
 
 json() { python3 -c 'import json,sys; print(json.dumps(dict(zip(sys.argv[1::2], sys.argv[2::2]))))' "$@"; }
 
@@ -36,7 +37,6 @@ docker compose restart authelia >/dev/null
 
 # 2. Jellyfin: the admin changes the password. Jellyfin asks for the current one when the admin
 #    changes their own, and ignores it for anyone else.
-admin_pw=$(cat "$S/jellyfin_admin_password")
 admin_token=$(curl -sf -X POST "$J/Users/AuthenticateByName" -H 'Content-Type: application/json' \
   -H "Authorization: $JAUTH" -d "$(json Username admin Pw "$admin_pw")" |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["AccessToken"])')
@@ -50,13 +50,6 @@ curl -sf -X POST "$J/Users/$user_id/Password" -H "$H" -H 'Content-Type: applicat
 # 3. Navidrome: its CLI only reads passwords from a terminal, so give it one.
 (sleep 3; printf '%s\r' "$pw"; sleep 2; printf '%s\r' "$pw"; sleep 4) |
   script -qec "docker compose exec navidrome /app/navidrome user edit -u $USER_NAME --set-password --datafolder /data" /dev/null >/dev/null
-
-# Keep the copies the setup scripts read in step (admin account only).
-if [ "$USER_NAME" = admin ]; then
-  for f in ryan_password jellyfin_admin_password navidrome_app_password; do
-    install -m 600 /dev/stdin "$S/$f" <<<"$pw"
-  done
-fi
 
 # Check each login with the new password.
 sleep 5
