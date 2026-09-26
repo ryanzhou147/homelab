@@ -86,4 +86,9 @@ done
 compose ps authelia --format '{{.Status}}' | grep -q healthy ||
   { echo "The lab did not come up; old data kept in $DATA.plain-old."; exit 1; }
 rm -rf "$DATA.plain-old"
+# Deleting only unlinks files; TRIM tells the SSD to discard the freed blocks so the old plaintext
+# can't be read back from the drive.
+fstrim -v "$(findmnt -no TARGET -T "$(dirname "$DATA")")"
 echo "Done. Lab data is encrypted and unlocks with the TPM at boot."
+echo "Passwords and keys that sat unencrypted before should now be changed: run"
+echo "./scripts/set-password.sh for your password, and ask for the S3 key to be rotated."
