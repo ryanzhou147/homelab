@@ -131,12 +131,15 @@ def main() -> None:
     missing: Counter = Counter()
     for path in files:
         tracks = read_playlist(path)
+        name = path.stem.replace("_", " ").strip() or path.stem
+        if not tracks:
+            print(f"{name}: empty, skipped")
+            continue
         found = [(t, navidrome.find(t)) for t in tracks]
         song_ids = list(dict.fromkeys(i for _, i in found if i))
         for track, song_id in found:
             if not song_id:
                 missing[(track["artists"][0] if track["artists"] else "", track["album"])] += 1
-        name = path.stem.replace("_", " ")
         navidrome.save_playlist(name, song_ids)
         print(f"{name}: {len(song_ids)} of {len(tracks)} songs in your library")
 
