@@ -14,13 +14,14 @@ authentication_backend:
 access_control:
   default_policy: deny
   rules:
-    # Storage admin holds Garage's admin token: only the admins group may open it.
+    # Storage admin holds Garage's admin token, and the music fetchers write to the library:
+    # only the admins group may open them.
     - domain: '{{ env "X_HOST" }}'
-      resources: ['^/storage([/?].*)?$']
+      resources: ['^/(storage|lidarr|slskd)([/?].*)?$']
       subject: 'group:admins'
       policy: one_factor
     - domain: '{{ env "X_HOST" }}'
-      resources: ['^/storage([/?].*)?$']
+      resources: ['^/(storage|lidarr|slskd)([/?].*)?$']
       policy: deny
     - domain: '{{ env "X_HOST" }}'
       policy: one_factor

@@ -106,6 +106,77 @@ services:
       - ${DATA}/jellyfin/cache:/cache
       - ${MEDIA}/video:/media/video:ro
 
+  # Music fetching: Lidarr tracks the albums you want, Soularr asks slskd (a Soulseek client) for
+  # them, and Lidarr files the downloads into ${MEDIA}/music for Navidrome. Run
+  # scripts/setup-music-fetch.sh once before the first start. Both UIs trust Caddy's login
+  # (admins only) and listen on 127.0.0.1; they sit on their own network, away from the media apps.
+  lidarr:
+    <<: *local
+    image: lscr.io/linuxserver/lidarr:3.1.0.4875-ls43
+    ports: ["127.0.0.1:8686:8686"]
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      LIDARR__SERVER__URLBASE: /lidarr
+      # shortcut: no own login, so any local program can open the UI on 127.0.0.1 and read the
+      # API key from it; use Forms login if other people get accounts on this PC.
+      LIDARR__AUTH__METHOD: External
+      LIDARR__LOG__ANALYTICSENABLED: "False"
+    # LIDARR__AUTH__APIKEY, shared with Soularr.
+    env_file: ${DATA}/secrets/lidarr.env
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8686/lidarr/ping"]
+      interval: 30s
+      start_period: 60s
+      start_interval: 3s
+    volumes:
+      - ${DATA}/lidarr:/config
+      # One mount for downloads and the library, so an import is a rename, not a copy.
+      - ${MEDIA}:/data
+    networks: [fetch]
+
+  slskd:
+    <<: *local
+    image: slskd/slskd:0.26.1
+    user: "1000:1000"
+    cap_drop: [ALL]
+    ports: ["127.0.0.1:5030:5030"]
+    environment:
+      SLSKD_HTTP_PORT: "5030"
+      SLSKD_URL_BASE: /slskd
+      SLSKD_NO_HTTPS: "true"
+      # shortcut: no own login, so any local program can drive slskd on 127.0.0.1; set
+      # SLSKD_API_KEY and a web password if other people get accounts on this PC.
+      SLSKD_NO_AUTH: "true"
+      SLSKD_REMOTE_CONFIGURATION: "false"
+      SLSKD_DOWNLOADS_DIR: /data/downloads/slskd
+      SLSKD_INCOMPLETE_DIR: /data/downloads/incomplete
+      # Nothing is shared, and the Soulseek port is not forwarded: only peers that accept
+      # incoming connections can send files.
+    # SLSKD_SLSK_USERNAME and SLSKD_SLSK_PASSWORD: the Soulseek account from the setup script.
+    env_file: ${DATA}/secrets/slskd.env
+    volumes:
+      - ${DATA}/slskd:/app
+      - ${MEDIA}/downloads:/data/downloads
+    networks: [fetch]
+
+  soularr:
+    <<: *local
+    image: mrusse08/soularr:v1.2.2
+    user: "1000:1000"
+    cap_drop: [ALL]
+    environment:
+      SCRIPT_INTERVAL: "300"
+    volumes:
+      # config.ini (holds the Lidarr API key) and Soularr's log.
+      - ${DATA}/soularr:/data
+      - ${MEDIA}/downloads/slskd:/downloads
+    networks: [fetch]
+    # Soularr's first run fails if Lidarr is still starting.
+    depends_on:
+      lidarr: {condition: service_healthy}
+      slskd: {condition: service_started}
+
 # A fixed range so a single firewall rule can let these containers reach Caddy on the Tailscale
 # address (Jellyfin's SSO plugin talks to Authelia that way):
 #   sudo ufw allow from 172.30.77.0/24 to <TS_IP> port 443 proto tcp
@@ -114,3 +185,7 @@ networks:
     ipam:
       config:
         - subnet: 172.30.77.0/24
+  fetch:
+    ipam:
+      config:
+        - subnet: 172.30.78.0/24

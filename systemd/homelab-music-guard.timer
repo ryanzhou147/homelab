@@ -1,0 +1,9 @@
+[Unit]
+Description=Check the media disk for the home lab music downloads every 10 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

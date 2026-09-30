@@ -12,6 +12,17 @@
 	}
 }
 
+# Login, then a second admins check after Caddy's own routing, so the admin rule cannot be dodged
+# by an address Authelia and Caddy read differently. Remote-Groups comes only from Authelia.
+(admin) {
+	route {
+		import login
+		@notadmin not header_regexp Remote-Groups (^|,)\s*admins\s*(,|$)
+		respond @notadmin "Forbidden" 403
+		reverse_proxy {args[0]}
+	}
+}
+
 {$HOST}:443 {
 	bind {$TS_IP}
 	tls {
@@ -49,14 +60,14 @@
 		reverse_proxy 127.0.0.1:8096
 	}
 	handle /storage* {
-		# Second check after Caddy's own routing, so the admin rule cannot be dodged by an
-		# address Authelia and Caddy read differently. Remote-Groups comes only from Authelia.
-		route {
-			import login
-			@notadmin not header_regexp Remote-Groups (^|,)\s*admins\s*(,|$)
-			respond @notadmin "Forbidden" 403
-			reverse_proxy 127.0.0.1:3909
-		}
+		import admin 127.0.0.1:3909
+	}
+	# Music fetchers: Lidarr and slskd have no login of their own and trust this one.
+	handle /lidarr* {
+		import admin 127.0.0.1:8686
+	}
+	handle /slskd* {
+		import admin 127.0.0.1:5030
 	}
 	handle {
 		import login
