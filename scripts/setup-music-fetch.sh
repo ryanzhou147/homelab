@@ -30,13 +30,13 @@ if [ ! -f "$DATA/soularr/config.ini" ]; then
 	cat >"$DATA/soularr/config.ini" <<EOF
 [Lidarr]
 api_key = $LIDARR__AUTH__APIKEY
-host_url = http://lidarr:8686/lidarr
+host_url = http://127.0.0.1:8686/lidarr
 download_dir = /data/downloads/slskd
 disable_sync = False
 
 [Slskd]
 api_key = unused-slskd-has-no-login
-host_url = http://slskd:5030
+host_url = http://127.0.0.1:5030
 url_base = /slskd
 download_dir = /downloads
 delete_searches = False

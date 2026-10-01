@@ -6,6 +6,7 @@
    albums until you pick them.
 3. Makes Lidarr refuse imports that would leave less than MIN_FREE_GB on the disk.
 4. Checks that slskd is logged in to Soulseek and that Soularr reaches both apps.
+5. Checks that the fetch gate refuses requests that web pages could send.
 
     ./scripts/configure-music-fetch.py     (start-music-fetch.sh runs it)
 
@@ -119,6 +120,32 @@ def check_soularr() -> bool:
     return not failed
 
 
+def check_gate() -> bool:
+    """The gate must refuse what a web page in the browser could send, and pass the lab."""
+    host = os.environ.get("HOST", "")
+    cases = [
+        ({"Host": "evil.example"}, 403),
+        ({"Origin": "https://evil.example"}, 403),
+        ({"Sec-Fetch-Site": "cross-site"}, 403),
+        ({"Host": host, "Origin": f"https://{host}", "Sec-Fetch-Site": "same-origin"}, 200),
+        ({}, 200),
+    ]
+    ok = True
+    for headers, want in cases:
+        req = urllib.request.Request(f"{SLSKD}/server", headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                got = resp.status
+        except urllib.error.HTTPError as err:
+            got = err.code
+        if got != want:
+            print(f"FAIL gate: {headers} gave {got}, want {want}")
+            ok = False
+    if ok:
+        print("ok   gate: refuses other sites, passes the lab and localhost")
+    return ok
+
+
 def main() -> None:
     key = api_key()
     status = wait_for_lidarr(key)
@@ -129,6 +156,7 @@ def main() -> None:
     ensure_free_space_limit(key)
     ok = check_slskd() and ok
     ok = check_soularr() and ok
+    ok = check_gate() and ok
     sys.exit(0 if ok else 1)
 
 

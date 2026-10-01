@@ -1,0 +1,33 @@
+# The only way in to Lidarr and slskd, which have no login of their own and listen on 127.0.0.1
+# inside this container's network. Any web page open on this PC can make the browser call these
+# ports, either at 127.0.0.1 or through its own domain pointed at 127.0.0.1 (DNS rebinding), and
+# slskd's CORS headers would let it read the replies. So the gate refuses:
+#   - a Host other than the lab's name or localhost (DNS rebinding);
+#   - an Origin other than the lab, or a Sec-Fetch-Site that says another site sent it.
+# Scripts and curl send neither header and get through on localhost.
+{
+	admin off
+	auto_https off
+}
+
+(gate) {
+	@foreign_host not host {$HOST} 127.0.0.1 localhost
+	respond @foreign_host "Forbidden" 403
+	@foreign_origin {
+		header Origin *
+		not header Origin https://{$HOST}
+	}
+	respond @foreign_origin "Forbidden" 403
+	@other_site header_regexp Sec-Fetch-Site ^(cross|same)-site$
+	respond @other_site "Forbidden" 403
+}
+
+http://:18686 {
+	import gate
+	reverse_proxy 127.0.0.1:8686
+}
+
+http://:15030 {
+	import gate
+	reverse_proxy 127.0.0.1:5030
+}

@@ -16,4 +16,4 @@ ln -sf "$PWD"/systemd/homelab-music-guard.{service,timer} ~/.config/systemd/user
 systemctl --user daemon-reload
 systemctl --user enable --now homelab-music-guard.timer
 
-DATA="$DATA" ./scripts/configure-music-fetch.py
+DATA="$DATA" HOST="$HOST" ./scripts/configure-music-fetch.py

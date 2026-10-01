@@ -108,18 +108,30 @@ services:
 
   # Music fetching: Lidarr tracks the albums you want, Soularr asks slskd (a Soulseek client) for
   # them, and Lidarr files the downloads into ${MEDIA}/music for Navidrome. Run
-  # scripts/setup-music-fetch.sh once before the first start. Both UIs trust Caddy's login
-  # (admins only) and listen on 127.0.0.1; they sit on their own network, away from the media apps.
+  # scripts/start-music-fetch.sh once. The three apps share fetch-gate's network and listen on its
+  # 127.0.0.1 only, so the PC reaches them only through the gate. The UIs trust Caddy's login
+  # (admins only); the gate keeps out web pages that point their domain at 127.0.0.1.
+  fetch-gate:
+    <<: *local
+    image: caddy:2.11.7
+    ports: ["127.0.0.1:8686:18686", "127.0.0.1:5030:15030"]
+    environment:
+      HOST: ${HOST}
+    volumes:
+      - ./fetch-gate/Caddyfile:/etc/caddy/Caddyfile:ro
+    networks: [fetch]
+
   lidarr:
     <<: *local
     image: lscr.io/linuxserver/lidarr:3.1.0.4875-ls43
-    ports: ["127.0.0.1:8686:8686"]
+    network_mode: service:fetch-gate
     environment:
       PUID: "1000"
       PGID: "1000"
+      LIDARR__SERVER__BINDADDRESS: 127.0.0.1
       LIDARR__SERVER__URLBASE: /lidarr
-      # shortcut: no own login, so any local program can open the UI on 127.0.0.1 and read the
-      # API key from it; use Forms login if other people get accounts on this PC.
+      # shortcut: no own login, so any local program can open the UI through the gate and read
+      # the API key from it; use Forms login if other people get accounts on this PC.
       LIDARR__AUTH__METHOD: External
       LIDARR__LOG__ANALYTICSENABLED: "False"
     # LIDARR__AUTH__APIKEY, shared with Soularr.
@@ -133,19 +145,21 @@ services:
       - ${DATA}/lidarr:/config
       # One mount for downloads and the library, so an import is a rename, not a copy.
       - ${MEDIA}:/data
-    networks: [fetch]
+    # Rejoin the gate's network when it restarts (docker compose restart fetch-gate).
+    depends_on: {fetch-gate: {condition: service_started, restart: true}}
 
   slskd:
     <<: *local
     image: slskd/slskd:0.26.1
     user: "1000:1000"
     cap_drop: [ALL]
-    ports: ["127.0.0.1:5030:5030"]
+    network_mode: service:fetch-gate
     environment:
+      SLSKD_HTTP_IP_ADDRESS: 127.0.0.1
       SLSKD_HTTP_PORT: "5030"
       SLSKD_URL_BASE: /slskd
       SLSKD_NO_HTTPS: "true"
-      # shortcut: no own login, so any local program can drive slskd on 127.0.0.1; set
+      # shortcut: no own login, so any local program can drive slskd through the gate; set
       # SLSKD_API_KEY and a web password if other people get accounts on this PC.
       SLSKD_NO_AUTH: "true"
       SLSKD_REMOTE_CONFIGURATION: "false"
@@ -158,22 +172,26 @@ services:
     volumes:
       - ${DATA}/slskd:/app
       - ${MEDIA}/downloads:/data/downloads
-    networks: [fetch]
+    # Rejoin the gate's network when it restarts (docker compose restart fetch-gate).
+    depends_on: {fetch-gate: {condition: service_started, restart: true}}
 
   soularr:
     <<: *local
     image: mrusse08/soularr:v1.2.2
     user: "1000:1000"
     cap_drop: [ALL]
+    network_mode: service:fetch-gate
     environment:
       SCRIPT_INTERVAL: "300"
+      # Its web UI would listen on every address of the shared network, with no login.
+      WEBUI_ENABLED: "false"
     volumes:
       # config.ini (holds the Lidarr API key) and Soularr's log.
       - ${DATA}/soularr:/data
       - ${MEDIA}/downloads/slskd:/downloads
-    networks: [fetch]
     # Soularr's first run fails if Lidarr is still starting.
     depends_on:
+      fetch-gate: {condition: service_started, restart: true}
       lidarr: {condition: service_healthy}
       slskd: {condition: service_started}
 
