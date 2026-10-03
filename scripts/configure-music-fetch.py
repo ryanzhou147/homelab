@@ -120,9 +120,20 @@ def check_soularr() -> bool:
     return not failed
 
 
+def lab_host() -> str:
+    """HOST from the environment, else from the repo's .env, so the script also runs alone."""
+    if os.environ.get("HOST"):
+        return os.environ["HOST"]
+    env = Path(__file__).parent.parent / ".env"
+    for line in env.read_text().splitlines():
+        if line.startswith("HOST="):
+            return line.split("=", 1)[1].strip()
+    sys.exit(f"No HOST in the environment or in {env}.")
+
+
 def check_gate() -> bool:
     """The gate must refuse what a web page in the browser could send, and pass the lab."""
-    host = os.environ.get("HOST", "")
+    host = lab_host()
     cases = [
         ({"Host": "evil.example"}, 403),
         ({"Origin": "https://evil.example"}, 403),
