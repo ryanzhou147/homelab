@@ -146,6 +146,8 @@ services:
       # One mount for downloads and the library, so an import is a rename, not a copy.
       - ${MEDIA}:/data
     # Rejoin the gate's network when it restarts (docker compose restart fetch-gate).
+    # shortcut: if Docker itself restarts a crashed gate, this does not act and the UI gives 502;
+    # run docker compose restart fetch-gate. Add a watchdog if the gate ever crashes.
     depends_on: {fetch-gate: {condition: service_started, restart: true}}
 
   slskd:
@@ -173,6 +175,8 @@ services:
       - ${DATA}/slskd:/app
       - ${MEDIA}/downloads:/data/downloads
     # Rejoin the gate's network when it restarts (docker compose restart fetch-gate).
+    # shortcut: if Docker itself restarts a crashed gate, this does not act and the UI gives 502;
+    # run docker compose restart fetch-gate. Add a watchdog if the gate ever crashes.
     depends_on: {fetch-gate: {condition: service_started, restart: true}}
 
   soularr:
