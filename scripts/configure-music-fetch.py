@@ -53,6 +53,10 @@ def wait_for_lidarr(key: str) -> dict:
         try:
             return call(f"{LIDARR}/system/status", key)
         except (urllib.error.URLError, ConnectionError) as err:
+            # A 401 comes from Lidarr itself, so waiting does not help. The gate gives 502 while
+            # Lidarr starts.
+            if isinstance(err, urllib.error.HTTPError) and err.code == 401:
+                sys.exit(f"Lidarr refused the API key in {DATA / 'secrets/lidarr.env'}.")
             if time.monotonic() > deadline:
                 sys.exit(f"Lidarr did not answer within {START_TIMEOUT_S} s: {err}")
             time.sleep(3)
