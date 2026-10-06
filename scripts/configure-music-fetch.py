@@ -4,7 +4,8 @@
 1. Waits for Lidarr, and checks that it uses the /lidarr base and trusts Caddy's login.
 2. Adds /data/music (the Navidrome library) as Lidarr's root folder, where a new artist wants no
    albums until you pick them.
-3. Makes Lidarr refuse imports that would leave less than MIN_FREE_GB on the disk.
+3. Makes Lidarr refuse imports that would leave less than MIN_FREE_GB on the disk, and file each
+   album in its own folder.
 4. Checks that slskd is logged in to Soulseek and that Soularr reaches both apps.
 5. Checks that the fetch gate refuses requests that web pages could send.
 
@@ -86,13 +87,12 @@ def ensure_root_folder(key: str) -> None:
     print(f"Added root folder {ROOT_FOLDER}.")
 
 
-def ensure_free_space_limit(key: str) -> None:
-    config = call(f"{LIDARR}/config/mediamanagement", key)
-    if config["minimumFreeSpaceWhenImporting"] == MIN_FREE_GB * 1024:
+def ensure_config(key: str, section: str, wanted: dict, message: str) -> None:
+    config = call(f"{LIDARR}/config/{section}", key)
+    if all(config[k] == v for k, v in wanted.items()):
         return
-    updated = {**config, "minimumFreeSpaceWhenImporting": MIN_FREE_GB * 1024}
-    call(f"{LIDARR}/config/mediamanagement/{config['id']}", key, "PUT", updated)
-    print(f"Lidarr now refuses imports below {MIN_FREE_GB} GB free.")
+    call(f"{LIDARR}/config/{section}/{config['id']}", key, "PUT", {**config, **wanted})
+    print(message)
 
 
 def check_slskd() -> bool:
@@ -168,7 +168,12 @@ def main() -> None:
     print(f"{'ok  ' if ok else 'FAIL'} lidarr {status.get('version')}: base "
           f"{status.get('urlBase')!r}, login {status.get('authentication')!r}")
     ensure_root_folder(key)
-    ensure_free_space_limit(key)
+    ensure_config(key, "mediamanagement", {"minimumFreeSpaceWhenImporting": MIN_FREE_GB * 1024},
+                  f"Lidarr now refuses imports below {MIN_FREE_GB} GB free.")
+    # The album folder is part of the track name format, so without renaming every track of an
+    # artist lands in one folder, and two albums' "01 Intro.mp3" collide.
+    ensure_config(key, "naming", {"renameTracks": True},
+                  "Lidarr now files each album in its own folder.")
     ok = check_slskd() and ok
     ok = check_soularr() and ok
     ok = check_gate() and ok
