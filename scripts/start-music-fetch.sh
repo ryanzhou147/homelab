@@ -23,7 +23,14 @@ restart_if_changed caddy Caddyfile
 
 mkdir -p ~/.config/systemd/user
 ln -sf "$PWD"/systemd/homelab-music-guard.{service,timer} ~/.config/systemd/user/
+ln -sf "$PWD"/systemd/homelab-spotify-sync.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now homelab-music-guard.timer
+# The Spotify sync needs --auth run once first; only enable the timer if credentials exist.
+if [ -f "$DATA/secrets/spotify.env" ] && grep -q SPOTIFY_REFRESH_TOKEN "$DATA/secrets/spotify.env" 2>/dev/null; then
+	systemctl --user enable --now homelab-spotify-sync.timer
+else
+	echo "Spotify sync: run './scripts/sync-spotify.py --auth' once, then re-run this script."
+fi
 
 DATA="$DATA" HOST="$HOST" ./scripts/configure-music-fetch.py

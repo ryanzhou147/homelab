@@ -1,0 +1,13 @@
+[Unit]
+Description=Sync Spotify playlists to Navidrome and queue missing albums in Lidarr
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=DATA=%h/homelab-data
+Environment=NAVIDROME_URL=https://your-pc.your-tailnet.ts.net/music
+EnvironmentFile=%h/homelab-data/secrets/navidrome.env
+WorkingDirectory=%h/Documents/Projects/homelab
+ExecStart=%h/Documents/Projects/homelab/scripts/sync-spotify.py
+StandardOutput=journal
+StandardError=journal
