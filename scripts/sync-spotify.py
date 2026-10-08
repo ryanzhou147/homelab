@@ -176,7 +176,7 @@ class SpotifyClient:
             page = (data.get("items") or data.get("tracks") or {}) if first else data
             first = False
             for item in page.get("items", []):
-                track = item.get("item") or item.get("track")
+                track = item.get("track")
                 if not track or item.get("is_local") or track.get("is_local"):
                     continue
                 if track.get("type") not in (None, "track"):
@@ -223,7 +223,7 @@ def spotify_auth(client_id: str, client_secret: str) -> str:
             self.wfile.write(b"Authorization received. You can close this tab.")
             done.set()
 
-    server = http.server.HTTPServer(("", AUTH_PORT), Handler)
+    server = http.server.HTTPServer(("127.0.0.1", AUTH_PORT), Handler)
 
     def _serve():
         while not done.is_set():
