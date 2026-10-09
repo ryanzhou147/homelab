@@ -90,6 +90,7 @@ def save_env_key(path: Path, key: str, value: str) -> None:
         lines.append(f"{key}={value}")
     tmp = path.with_suffix(".tmp")
     tmp.write_text("\n".join(lines) + "\n")
+    tmp.chmod(0o600)
     tmp.rename(path)
 
 
@@ -373,7 +374,12 @@ class Lidarr:
                 return False
             if best.get("monitored"):
                 return True
-            self._call(f"album/{best['id']}", "PUT", {**best, "monitored": True})
+            self._call(f"album/{best['id']}", "PUT", {
+                "id": best["id"],
+                "foreignAlbumId": best["foreignAlbumId"],
+                "qualityProfileId": best["qualityProfileId"],
+                "monitored": True,
+            })
             self._call("command", "POST", {"name": "AlbumSearch", "albumIds": [best["id"]]})
             return True
         except RuntimeError as err:
@@ -449,7 +455,6 @@ def cmd_auth() -> None:
     refresh_token = spotify_auth(client_id, client_secret)
     SPOTIFY_CREDS.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     save_env_key(SPOTIFY_CREDS, "SPOTIFY_REFRESH_TOKEN", refresh_token)
-    SPOTIFY_CREDS.chmod(0o600)
     print(f"Refresh token saved to {SPOTIFY_CREDS}.")
 
 
