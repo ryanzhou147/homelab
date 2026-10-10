@@ -177,7 +177,7 @@ class SpotifyClient:
             page = (data.get("items") or data.get("tracks") or {}) if first else data
             first = False
             for item in page.get("items", []):
-                track = item.get("track")
+                track = item.get("item") or item.get("track")
                 if not track or item.get("is_local") or track.get("is_local"):
                     continue
                 if track.get("type") not in (None, "track"):
