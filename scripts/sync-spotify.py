@@ -62,6 +62,9 @@ NOISE = re.compile(
     r"deluxe|bonus|explicit)\b[^)\]]*[\)\]]?",
     re.IGNORECASE,
 )
+# Strips ALL parenthetical annotations (used for stem comparison only).
+# Only parens and brackets; dash-prefixed annotations are handled by NOISE.
+_ALL_PARENS = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]?")
 
 
 # --- helpers -----------------------------------------------------------------
@@ -101,7 +104,16 @@ def normalize(text: str) -> str:
 
 
 def similar(a: str, b: str) -> float:
-    return SequenceMatcher(None, normalize(a), normalize(b)).ratio()
+    na, nb = normalize(a), normalize(b)
+    base = SequenceMatcher(None, na, nb).ratio()
+    # Parenthetical annotations like "(feat. Drake)", "(PMEDIA)", "(Deluxe)" on one
+    # side but not the other lower the ratio without indicating a real mismatch.
+    # Compare bare stems (all parens stripped) and boost when they are equal.
+    sa = normalize(_ALL_PARENS.sub("", a or ""))
+    sb = normalize(_ALL_PARENS.sub("", b or ""))
+    if sa and sb and sa == sb:
+        return max(base, 0.95)
+    return base
 
 
 def http_get(url: str, headers: dict = ()) -> dict:
@@ -369,17 +381,24 @@ class Lidarr:
             albums = self._call(f"album?artistId={artist_id}") or []
             if not albums:
                 return False
-            best = max(albums, key=lambda a: similar(album_name, a.get("title", "")))
+            # Prefer an exact normalized title match over a stem-boosted one so that
+            # "Fearless" does not arbitrarily win over "Fearless (Fan Edition)" by list order.
+            def _rank(a: dict) -> tuple:
+                t = a.get("title", "")
+                return (normalize(album_name) == normalize(t), similar(album_name, t))
+            best = max(albums, key=_rank)
             if similar(album_name, best.get("title", "")) < 0.7:
                 return False
             if best.get("monitored"):
                 return True
-            self._call(f"album/{best['id']}", "PUT", {
+            body: dict = {
                 "id": best["id"],
                 "foreignAlbumId": best["foreignAlbumId"],
-                "qualityProfileId": best["qualityProfileId"],
                 "monitored": True,
-            })
+            }
+            if best.get("qualityProfileId") is not None:
+                body["qualityProfileId"] = best["qualityProfileId"]
+            self._call(f"album/{best['id']}", "PUT", body)
             self._call("command", "POST", {"name": "AlbumSearch", "albumIds": [best["id"]]})
             return True
         except RuntimeError as err:
