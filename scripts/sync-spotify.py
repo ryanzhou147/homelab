@@ -116,10 +116,19 @@ def similar(a: str, b: str) -> float:
     return base
 
 
-def http_get(url: str, headers: dict = ()) -> dict:
+def http_get(url: str, headers: dict = (), _retries: int = 3) -> dict:
     req = urllib.request.Request(url, headers=dict(headers))
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read())
+    for attempt in range(_retries):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt < _retries - 1:
+                import time
+                wait = int(exc.headers.get("Retry-After", 60))
+                time.sleep(wait)
+                continue
+            raise
 
 
 def http_post(url: str, body: dict | str, headers: dict = ()) -> dict:
