@@ -69,6 +69,18 @@
 	handle /slskd* {
 		import admin 127.0.0.1:5030
 	}
+	# TV fetchers, the same way: no login of their own behind the admin check.
+	handle /sonarr* {
+		import admin 127.0.0.1:8989
+	}
+	handle /prowlarr* {
+		import admin 127.0.0.1:9696
+	}
+	# qBittorrent has no URL base setting, so Caddy removes the /qbit prefix.
+	redir /qbit /qbit/ 308
+	handle_path /qbit/* {
+		import admin 127.0.0.1:8081
+	}
 	handle {
 		import login
 		root * /srv/hub

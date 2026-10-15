@@ -114,7 +114,13 @@ services:
   fetch-gate:
     <<: *local
     image: caddy:2.11.7
-    ports: ["127.0.0.1:8686:18686", "127.0.0.1:5030:15030"]
+    ports:
+      - "127.0.0.1:8686:18686"
+      - "127.0.0.1:5030:15030"
+      - "127.0.0.1:8989:18989"
+      - "127.0.0.1:9696:19696"
+      # 8080 on the PC is taken by another program.
+      - "127.0.0.1:8081:18080"
     environment:
       HOST: ${HOST}
     volumes:
@@ -198,6 +204,57 @@ services:
       fetch-gate: {condition: service_started, restart: true}
       lidarr: {condition: service_healthy}
       slskd: {condition: service_started}
+
+  # TV fetching, same pattern as music: Sonarr tracks the shows, Prowlarr finds releases and
+  # qBittorrent downloads them. They share fetch-gate's network and listen on its 127.0.0.1 only.
+  # Sonarr and qBittorrent both see ${MEDIA} at /data, so an import is a hardlink, not a copy.
+  qbittorrent:
+    <<: *local
+    image: lscr.io/linuxserver/qbittorrent:5.0.4
+    network_mode: service:fetch-gate
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      WEBUI_PORT: "8080"
+    # qBittorrent.conf (set through its API, not in this repo) binds the web UI to 127.0.0.1 and
+    # skips its login for requests from 127.0.0.1.
+    # shortcut: every app on the gate's network, slskd too, can drive qBittorrent with no login;
+    # set a WebUI password and give it to Sonarr if one of them is ever exposed.
+    volumes:
+      - ${DATA}/qbittorrent:/config
+      - ${MEDIA}/downloads/qbittorrent:/data/downloads/qbittorrent
+    depends_on: {fetch-gate: {condition: service_started, restart: true}}
+
+  prowlarr:
+    <<: *local
+    image: lscr.io/linuxserver/prowlarr:1.37.0
+    network_mode: service:fetch-gate
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      PROWLARR__SERVER__BINDADDRESS: 127.0.0.1
+      PROWLARR__SERVER__URLBASE: /prowlarr
+      PROWLARR__AUTH__METHOD: External
+      PROWLARR__LOG__ANALYTICSENABLED: "False"
+    volumes:
+      - ${DATA}/prowlarr:/config
+    depends_on: {fetch-gate: {condition: service_started, restart: true}}
+
+  sonarr:
+    <<: *local
+    image: lscr.io/linuxserver/sonarr:4.0.14
+    network_mode: service:fetch-gate
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      SONARR__SERVER__BINDADDRESS: 127.0.0.1
+      SONARR__SERVER__URLBASE: /sonarr
+      SONARR__AUTH__METHOD: External
+      SONARR__LOG__ANALYTICSENABLED: "False"
+    volumes:
+      - ${DATA}/sonarr:/config
+      - ${MEDIA}:/data
+    depends_on: {fetch-gate: {condition: service_started, restart: true}}
 
 # A fixed range so a single firewall rule can let these containers reach Caddy on the Tailscale
 # address (Jellyfin's SSO plugin talks to Authelia that way):

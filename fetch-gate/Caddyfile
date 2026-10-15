@@ -1,4 +1,4 @@
-# The only way in to Lidarr and slskd, which have no login of their own and listen on 127.0.0.1
+# The only way in to Lidarr, slskd, Sonarr, Prowlarr and qBittorrent, which have no login of their own and listen on 127.0.0.1
 # inside this container's network. Any web page open on this PC can make the browser call these
 # ports, either at 127.0.0.1 or through its own domain pointed at 127.0.0.1 (DNS rebinding), and
 # slskd's CORS headers would let it read the replies. So the gate refuses:
@@ -30,4 +30,19 @@ http://:18686 {
 http://:15030 {
 	import gate
 	reverse_proxy 127.0.0.1:5030
+}
+
+http://:18989 {
+	import gate
+	reverse_proxy 127.0.0.1:8989
+}
+
+http://:19696 {
+	import gate
+	reverse_proxy 127.0.0.1:9696
+}
+
+http://:18080 {
+	import gate
+	reverse_proxy 127.0.0.1:8080
 }
