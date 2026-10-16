@@ -40,7 +40,7 @@ navidrome_count() {
 spotify_sync() {
     DATA="$DATA" NAVIDROME_URL="$NAVIDROME_URL" NAVIDROME_USER="$NAVIDROME_USER" \
       NAVIDROME_PASSWORD="$NAVIDROME_PASSWORD" \
-      python3 scripts/sync-spotify.py 2>&1 | grep -E "in library|^   [0-9]" | head -30 | tee -a "$LOG" || true
+      python3 scripts/sync-spotify.py 2>&1 | grep -E "in library|^   [0-9]|rate limit" | head -30 | tee -a "$LOG" || true
 }
 
 download_album() {
@@ -123,21 +123,21 @@ while true; do
     log "--- round $ROUND ---"
     FREE_GB=$(df --output=avail -BG "$MUSIC" | tail -1 | tr -dc 0-9)
     log "Disk free: ${FREE_GB}GB"
-    if [ "${FREE_GB:-0}" -lt 22 ]; then
-        log "Disk below 22GB, stopping downloads"
+    if [ "${FREE_GB:-0}" -lt 5 ]; then
+        log "Disk below 5GB, stopping"
         break
     fi
+    if [ "${FREE_GB:-0}" -ge 15 ]; then
+        # Priority downloads via spotdl.
+        for entry in "${PRIORITY_ALBUMS[@]}"; do
+            IFS='|' read -r artist album <<< "$entry"
+            download_album "$artist" "$album"
+        done
 
-    # Priority downloads via spotdl.
-    for entry in "${PRIORITY_ALBUMS[@]}"; do
-        IFS='|' read -r artist album <<< "$entry"
-        download_album "$artist" "$album"
-    done
-
-    # Also pull remaining wanted albums from Lidarr.
-    WANTED=$(curl -sf "$LIDARR/api/v1/wanted/missing?pageSize=200&monitored=true" \
-      -H "X-Api-Key: $LIDARR_KEY" 2>/dev/null \
-      | python3 -c "
+        # Also pull remaining wanted albums from Lidarr.
+        WANTED=$(curl -sf "$LIDARR/api/v1/wanted/missing?pageSize=200&monitored=true" \
+          -H "X-Api-Key: $LIDARR_KEY" 2>/dev/null \
+          | python3 -c "
 import json,sys
 data=json.load(sys.stdin)
 for r in data.get('records',[]):
@@ -146,10 +146,11 @@ for r in data.get('records',[]):
     if a and t: print(f'{a}|{t}')
 " 2>/dev/null || echo "")
 
-    while IFS='|' read -r artist album; do
-        [ -n "$artist" ] || continue
-        download_album "$artist" "$album"
-    done <<< "$WANTED"
+        while IFS='|' read -r artist album; do
+            [ -n "$artist" ] || continue
+            download_album "$artist" "$album"
+        done <<< "$WANTED"
+    fi
 
     log "Scanning Navidrome..."
     navidrome_scan
