@@ -76,6 +76,9 @@
 	handle /prowlarr* {
 		import admin 127.0.0.1:9696
 	}
+	handle /radarr* {
+		import admin 127.0.0.1:7878
+	}
 	# qBittorrent has no URL base setting, so Caddy removes the /qbit prefix.
 	redir /qbit /qbit/ 308
 	handle_path /qbit/* {
@@ -86,6 +89,21 @@
 		root * /srv/hub
 		file_server
 	}
+}
+
+# Seerr (show and movie requests) has no URL base setting, so it gets its own port. Users sign in
+# twice: Authelia here, then Seerr with their Jellyfin account.
+{$HOST}:5055 {
+	bind {$TS_IP}
+	tls {
+		get_certificate tailscale
+	}
+	request_header -Remote-User
+	request_header -Remote-Groups
+	request_header -Remote-Name
+	request_header -Remote-Email
+	import login
+	reverse_proxy 127.0.0.1:5055
 }
 
 # S3 API for code and backup tools: authenticated by S3 access keys, not the login page.

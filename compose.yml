@@ -119,6 +119,7 @@ services:
       - "127.0.0.1:5030:15030"
       - "127.0.0.1:8989:18989"
       - "127.0.0.1:9696:19696"
+      - "127.0.0.1:7878:17878"
       # 8080 on the PC is taken by another program.
       - "127.0.0.1:8081:18080"
     environment:
@@ -255,6 +256,38 @@ services:
       - ${DATA}/sonarr:/config
       - ${MEDIA}:/data
     depends_on: {fetch-gate: {condition: service_started, restart: true}}
+
+  # Movies, the same way as Sonarr: files land in ${MEDIA}/video/movies for Jellyfin.
+  radarr:
+    <<: *local
+    image: lscr.io/linuxserver/radarr:6.4.4
+    network_mode: service:fetch-gate
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      RADARR__SERVER__BINDADDRESS: 127.0.0.1
+      RADARR__SERVER__URLBASE: /radarr
+      RADARR__AUTH__METHOD: External
+      RADARR__LOG__ANALYTICSENABLED: "False"
+    volumes:
+      - ${DATA}/radarr:/config
+      - ${MEDIA}:/data
+    depends_on: {fetch-gate: {condition: service_started, restart: true}}
+
+  # Requests from the phone: users sign in with their Jellyfin account and pick a show or movie,
+  # and Seerr sends it to Sonarr or Radarr. Seerr has no URL base setting, so Caddy serves it on
+  # its own port. It runs on the host network to reach Jellyfin and the gate on 127.0.0.1.
+  # Create ${DATA}/seerr first, or Docker makes it as root and Seerr cannot write to it.
+  seerr:
+    <<: *local
+    image: ghcr.io/seerr-team/seerr:v3.5.0
+    init: true
+    network_mode: host
+    environment:
+      HOST: 127.0.0.1
+      PORT: "5055"
+    volumes:
+      - ${DATA}/seerr:/app/config
 
 # A fixed range so a single firewall rule can let these containers reach Caddy on the Tailscale
 # address (Jellyfin's SSO plugin talks to Authelia that way):
