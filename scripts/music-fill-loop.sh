@@ -2,7 +2,7 @@
 # Runs until all playlist songs are in the library:
 # 1. Downloads albums Soularr failed on via spotdl (using Spotify album URLs)
 # 2. Rescans Navidrome
-# 3. Updates Spotify playlists
+# 3. Updates Spotify playlists and downloads each missing track once with spotdl
 # Run in background: setsid nohup scripts/music-fill-loop.sh >> ~/homelab-data/music-fill.log 2>&1 &
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -14,6 +14,10 @@ NAVIDROME_USER="${NAVIDROME_USER:-admin}"
 LIDARR="http://localhost:8686/lidarr"
 LOG="$DATA/music-fill.log"
 DONE_FILE="$DATA/spotdl-done.txt"
+MISSING="$DATA/missing.spotdl"
+SPOTDL_FAILS=0
+MAX_SPOTDL_FAILS=3
+TRIED="$DATA/spotdl-tried.txt"
 
 set -a; source "$DATA/secrets/navidrome.env"; source "$DATA/secrets/spotify.env"; source "$DATA/secrets/lidarr.env"; set +a
 NAVIDROME_PASSWORD="${NAVIDROME_PASSWORD:-}"
@@ -40,7 +44,25 @@ navidrome_count() {
 spotify_sync() {
     DATA="$DATA" NAVIDROME_URL="$NAVIDROME_URL" NAVIDROME_USER="$NAVIDROME_USER" \
       NAVIDROME_PASSWORD="$NAVIDROME_PASSWORD" \
-      python3 scripts/sync-spotify.py 2>&1 | grep -E "in library|^   [0-9]|rate limit" | head -30 | tee -a "$LOG" || true
+      python3 scripts/sync-spotify.py --missing-out "$MISSING" 2>&1 \
+      | grep -E "in library|^   [0-9]|rate limit|missing tracks written" | tee -a "$LOG" || true
+}
+
+# Each track gets one try: spotdl finds no match for some, and retrying them every round wastes hours.
+download_missing() {
+    local urls
+    urls=$(python3 -c 'import json,sys; print("\n".join(s["url"] for s in json.load(open(sys.argv[1]))))' "$MISSING" 2>/dev/null || true)
+    [ -n "$urls" ] || return 0
+    log "spotdl: downloading $(wc -l <<< "$urls") missing tracks"
+    # spotdl exits 0 when only some tracks fail, so a non-zero exit means nothing was really tried.
+    if (cd "$MUSIC" && spotdl download "$MISSING" --format mp3 --bitrate 320k --threads 4 \
+      --output "{album-artist}/{album} ({year})/{track-number} - {title}.{output-ext}") >> "$LOG" 2>&1; then
+        echo "$urls" >> "$TRIED"
+        SPOTDL_FAILS=0
+    else
+        SPOTDL_FAILS=$((SPOTDL_FAILS + 1))
+        log "spotdl exited with an error ($SPOTDL_FAILS in a row); these tracks stay untried"
+    fi
 }
 
 download_album() {
@@ -158,6 +180,7 @@ for r in data.get('records',[]):
     log "Navidrome: $COUNT tracks"
 
     log "Syncing playlists..."
+    rm -f "$MISSING"  # a failed sync then leaves no stale list for spotdl to retry
     spotify_sync
 
     STILL_MISSING=$(curl -sf "$LIDARR/api/v1/wanted/missing?pageSize=1&monitored=true" \
@@ -165,8 +188,16 @@ for r in data.get('records',[]):
       | python3 -c "import json,sys; print(json.load(sys.stdin).get('totalRecords',0))" 2>/dev/null || echo "?")
     log "Lidarr still wants: $STILL_MISSING albums"
 
-    if [ "$STILL_MISSING" = "0" ]; then
-        log "All albums acquired. Loop done."
+    UNTRIED=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "$MISSING" 2>/dev/null || echo "?")
+    if [ "$UNTRIED" = "0" ]; then
+        log "Every missing track was tried once. Loop done."
+        break
+    fi
+    if [ "${FREE_GB:-0}" -ge 15 ]; then
+        download_missing
+    fi
+    if [ "$SPOTDL_FAILS" -ge "$MAX_SPOTDL_FAILS" ]; then
+        log "spotdl failed $SPOTDL_FAILS rounds in a row. Loop stopped."
         break
     fi
 
