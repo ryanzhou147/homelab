@@ -174,6 +174,9 @@ for r in data.get('records',[]):
         done <<< "$WANTED"
     fi
 
+    # spotdl and Lidarr files in one folder show as two albums. The merge uses the last scan, and
+    # this scan picks up its moves before the playlist sync.
+    python3 scripts/merge-split-albums.py --apply 2>&1 | tee -a "$LOG" || true
     log "Scanning Navidrome..."
     navidrome_scan
     COUNT=$(navidrome_count)
