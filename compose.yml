@@ -105,6 +105,8 @@ services:
       - ${DATA}/jellyfin/config:/config
       - ${DATA}/jellyfin/cache:/cache
       - ${MEDIA}/video:/media/video:ro
+    # fetch: Seerr checks who signs in and which shows exist through Jellyfin's own API.
+    networks: [default, fetch]
 
   # Music fetching: Lidarr tracks the albums you want, Soularr asks slskd (a Soulseek client) for
   # them, and Lidarr files the downloads into ${MEDIA}/music for Navidrome. Run
@@ -120,6 +122,7 @@ services:
       - "127.0.0.1:8989:18989"
       - "127.0.0.1:9696:19696"
       - "127.0.0.1:7878:17878"
+      - "127.0.0.1:5055:15055"
       # 8080 on the PC is taken by another program.
       - "127.0.0.1:8081:18080"
     environment:
@@ -276,18 +279,20 @@ services:
 
   # Requests from the phone: users sign in with their Jellyfin account and pick a show or movie,
   # and Seerr sends it to Sonarr or Radarr. Seerr has no URL base setting, so Caddy serves it on
-  # its own port. It runs on the host network to reach Jellyfin and the gate on 127.0.0.1.
+  # its own port. It shares the gate's network: its setup page has no login until the first
+  # Jellyfin sign-in, so only the gate may reach it. It reaches Jellyfin at host jellyfin, port 8096, URL base /video.
   # Create ${DATA}/seerr first, or Docker makes it as root and Seerr cannot write to it.
   seerr:
     <<: *local
     image: ghcr.io/seerr-team/seerr:v3.5.0
     init: true
-    network_mode: host
+    network_mode: service:fetch-gate
     environment:
       HOST: 127.0.0.1
       PORT: "5055"
     volumes:
       - ${DATA}/seerr:/app/config
+    depends_on: {fetch-gate: {condition: service_started, restart: true}}
 
 # A fixed range so a single firewall rule can let these containers reach Caddy on the Tailscale
 # address (Jellyfin's SSO plugin talks to Authelia that way):
@@ -301,3 +306,5 @@ networks:
     ipam:
       config:
         - subnet: 172.30.78.0/24
+          # fetch-gate lets in only this address: Docker's port proxy.
+          gateway: 172.30.78.1

@@ -1,7 +1,8 @@
-# The only way in to Lidarr, slskd, Sonarr, Radarr, Prowlarr and qBittorrent, which have no login of their own and listen on 127.0.0.1
+# The only way in to Lidarr, slskd, Sonarr, Radarr, Prowlarr, qBittorrent and Seerr, which have no login of their own and listen on 127.0.0.1
 # inside this container's network. Any web page open on this PC can make the browser call these
 # ports, either at 127.0.0.1 or through its own domain pointed at 127.0.0.1 (DNS rebinding), and
 # slskd's CORS headers would let it read the replies. So the gate refuses:
+#   - a client other than Docker's port proxy, such as Jellyfin on the fetch network;
 #   - a Host other than the lab's name or localhost (DNS rebinding);
 #   - an Origin other than the lab, or a Sec-Fetch-Site that says another site sent it.
 # Scripts and curl send neither header and get through on localhost.
@@ -11,6 +12,10 @@
 }
 
 (gate) {
+	# Only Docker's port proxy (the PC's 127.0.0.1 ports) may come in, not other containers on
+	# the fetch network such as Jellyfin.
+	@not_from_pc not remote_ip 172.30.78.1
+	respond @not_from_pc "Forbidden" 403
 	@foreign_host not host {$HOST} 127.0.0.1 localhost
 	respond @foreign_host "Forbidden" 403
 	@foreign_origin {
@@ -45,6 +50,31 @@ http://:19696 {
 http://:17878 {
 	import gate
 	reverse_proxy 127.0.0.1:7878
+}
+
+# Seerr's pages come from the lab on port 5055, so its Origin has the port. Links from the hub on
+# port 443 are same-site, so same-site page loads may pass; same-site API calls may not.
+http://:15055 {
+	# Only Docker's port proxy (the PC's 127.0.0.1 ports) may come in, not other containers on
+	# the fetch network such as Jellyfin.
+	@not_from_pc not remote_ip 172.30.78.1
+	respond @not_from_pc "Forbidden" 403
+	@foreign_host not host {$HOST} 127.0.0.1 localhost
+	respond @foreign_host "Forbidden" 403
+	@foreign_origin {
+		header Origin *
+		not header Origin https://{$HOST}:5055
+	}
+	respond @foreign_origin "Forbidden" 403
+	@other_site {
+		header_regexp Sec-Fetch-Site ^(cross|same)-site$
+		not {
+			header Sec-Fetch-Site same-site
+			header Sec-Fetch-Mode navigate
+		}
+	}
+	respond @other_site "Forbidden" 403
+	reverse_proxy 127.0.0.1:5055
 }
 
 http://:18080 {

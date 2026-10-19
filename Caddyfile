@@ -23,12 +23,7 @@
 	}
 }
 
-{$HOST}:443 {
-	bind {$TS_IP}
-	tls {
-		get_certificate tailscale
-	}
-	encode zstd gzip
+(site_headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
@@ -37,11 +32,20 @@
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
-	# Identity headers come only from Authelia (forward_auth below), never from the visitor.
+	# Identity headers come only from Authelia (the login snippet), never from the visitor.
 	request_header -Remote-User
 	request_header -Remote-Groups
 	request_header -Remote-Name
 	request_header -Remote-Email
+}
+
+{$HOST}:443 {
+	bind {$TS_IP}
+	tls {
+		get_certificate tailscale
+	}
+	encode zstd gzip
+	import site_headers
 
 	handle /auth* {
 		reverse_proxy 127.0.0.1:9091
@@ -98,12 +102,9 @@
 	tls {
 		get_certificate tailscale
 	}
-	request_header -Remote-User
-	request_header -Remote-Groups
-	request_header -Remote-Name
-	request_header -Remote-Email
-	import login
-	reverse_proxy 127.0.0.1:5055
+	import site_headers
+	# Admins only while Authelia has no other users; switch to login to let others request.
+	import admin 127.0.0.1:5055
 }
 
 # S3 API for code and backup tools: authenticated by S3 access keys, not the login page.
