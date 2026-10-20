@@ -90,7 +90,7 @@
 	}
 	# The home page shows data from the admin-only apps, so it is admin-only too.
 	handle {
-		import admin 127.0.0.1:3010
+		import admin 127.0.0.2:3010
 	}
 }
 

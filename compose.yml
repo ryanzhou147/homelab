@@ -29,17 +29,21 @@ services:
     image: ghcr.io/gethomepage/homepage:v2.5.0
     network_mode: host
     environment:
-      HOSTNAME: 127.0.0.1
+      # 127.0.0.2, not 127.0.0.1: Homepage always trusts the Host 127.0.0.1 and localhost, so a web
+      # page on this PC could press widget buttons (Jellyfin pause). On 127.0.0.2 the page gets 400.
+      HOSTNAME: 127.0.0.2
       PORT: "3010"
       PUID: "1000"
       PGID: "1000"
-      HOMEPAGE_ALLOWED_HOSTS: ${HOST},127.0.0.1:3010
+      HOMEPAGE_ALLOWED_HOSTS: ${HOST}
       HOMEPAGE_VAR_HOST: ${HOST}
       LOG_TARGETS: stdout
     env_file: ${DATA}/secrets/homepage.env
     volumes:
       - ./homepage:/app/config:ro
       - ./homepage/images:/app/public/images:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "--header", "Host: ${HOST}", "http://127.0.0.2:3010/api/healthcheck"]
 
   authelia:
     <<: *local
