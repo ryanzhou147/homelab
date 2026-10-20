@@ -92,18 +92,6 @@ fn read_playlist(path: &Path) -> Result<Vec<Track>> {
         .collect())
 }
 
-/// Creates the playlist, or replaces the songs of the one with the same name.
-fn save_playlist(navidrome: &Navidrome, name: &str, song_ids: &[String]) -> Result<()> {
-    let existing = navidrome.playlist_id(name)?;
-    let mut params = match &existing {
-        Some(id) => vec![("playlistId", id.as_str())],
-        None => vec![("name", name)],
-    };
-    params.extend(song_ids.iter().map(|s| ("songId", s.as_str())));
-    navidrome.call("createPlaylist", &params)?;
-    Ok(())
-}
-
 fn write_shopping_list(missing: &[((String, String), usize)], folder: &Path) -> Result<PathBuf> {
     let path = folder.join(SHOPPING_LIST);
     let mut writer = csv::WriterBuilder::new()
@@ -193,7 +181,7 @@ pub fn run(args: Args) -> Result<()> {
                 missing.push((artist, track.album.clone()));
             }
         }
-        save_playlist(&navidrome, name, &song_ids)?;
+        navidrome.save_playlist(name, &song_ids)?;
         println!(
             "{name}: {} of {} songs in your library",
             song_ids.len(),
