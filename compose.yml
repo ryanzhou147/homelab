@@ -44,6 +44,9 @@ services:
       - ./homepage/images:/app/public/images:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "--header", "Host: ${HOST}", "http://127.0.0.2:3010/api/healthcheck"]
+    # The image's page holds default settings until a rebuild, so rebuild it after each start.
+    post_start:
+      - command: ["sh", "-c", "for i in $$(seq 60); do wget -qO- --header 'Host: ${HOST}' http://127.0.0.2:3010/api/revalidate && exit 0; sleep 1; done; exit 1"]
 
   authelia:
     <<: *local
