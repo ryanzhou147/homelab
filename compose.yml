@@ -1,4 +1,4 @@
-# Home lab: S3 storage, music, video and a hub page behind one login, reachable only over
+# Home lab: S3 storage, music, video and a home page behind one login, reachable only over
 # Tailscale. Caddy is the single entrance on the PC's Tailscale address; every service
 # listens on 127.0.0.1 only.
 
@@ -17,10 +17,29 @@ services:
       TS_IP: ${TS_IP}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./hub:/srv/hub:ro
       - ${DATA}/caddy:/data
       - ${DATA}/sockets:/sockets
       - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+
+  # The home page: a card for each app with its live numbers (queue, download speed, streams).
+  # On the host network it calls the apps on the PC's 127.0.0.1 ports, as the fetch gate requires.
+  # Run scripts/homepage-secrets.py once before the first start.
+  homepage:
+    <<: *local
+    image: ghcr.io/gethomepage/homepage:v2.5.0
+    network_mode: host
+    environment:
+      HOSTNAME: 127.0.0.1
+      PORT: "3010"
+      PUID: "1000"
+      PGID: "1000"
+      HOMEPAGE_ALLOWED_HOSTS: ${HOST},127.0.0.1:3010
+      HOMEPAGE_VAR_HOST: ${HOST}
+      LOG_TARGETS: stdout
+    env_file: ${DATA}/secrets/homepage.env
+    volumes:
+      - ./homepage:/app/config:ro
+      - ./homepage/images:/app/public/images:ro
 
   authelia:
     <<: *local
@@ -221,7 +240,8 @@ services:
       PGID: "1000"
       WEBUI_PORT: "8080"
     # qBittorrent.conf (set through its API, not in this repo) binds the web UI to 127.0.0.1 and
-    # skips its login for requests from 127.0.0.1.
+    # skips its login for requests from 127.0.0.1. Its Host check is off: it refused the gate's
+    # 127.0.0.1:8081, and the gate checks the Host itself.
     # shortcut: every app on the gate's network, slskd too, can drive qBittorrent with no login;
     # set a WebUI password and give it to Sonarr if one of them is ever exposed.
     volumes:

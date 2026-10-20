@@ -1,0 +1,195 @@
+# Each card links to the app and shows its live numbers. Homepage calls the apps on 127.0.0.1
+# (the PC's ports); the keys come from homepage.env (scripts/homepage-secrets.py).
+- Watch:
+    - Jellyfin:
+        icon: jellyfin.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/video/
+        description: Shows and movies
+        siteMonitor: http://127.0.0.1:8096/video/health
+        widgets:
+          - type: jellyfin
+            # Version 2 uses Jellyfin's current API; Jellyfin 12 has no /emby paths.
+            version: 2
+            url: http://127.0.0.1:8096/video
+            key: "{{HOMEPAGE_VAR_JELLYFIN_KEY}}"
+            enableBlocks: true
+            enableNowPlaying: true
+            enableUser: true
+          - type: customapi
+            # Newest episodes and movies.
+            url: http://127.0.0.1:8096/video/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Episode,Movie&Recursive=true&Limit=4
+            headers:
+              Authorization: MediaBrowser Token="{{HOMEPAGE_VAR_JELLYFIN_KEY}}"
+            refreshInterval: 300000
+            display: dynamic-list
+            mappings:
+              items: Items
+              name: Name
+              label: SeriesName
+    - Requests:
+        icon: jellyseerr.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}:5055/
+        description: Ask for a show or a movie (Seerr)
+        siteMonitor: http://127.0.0.1:5055/api/v1/status
+        widgets:
+          - type: seerr
+            url: http://127.0.0.1:5055
+            key: "{{HOMEPAGE_VAR_SEERR_KEY}}"
+          # Seerr's API gives no titles, so the list comes from what Sonarr and Radarr expect.
+          - type: calendar
+            view: agenda
+            maxEvents: 3
+            previousDays: 3
+            showTime: true
+            integrations:
+              - type: sonarr
+                service_group: Download
+                service_name: Sonarr
+                index: 0  # its first widget; the default is this calendar's own position
+              - type: radarr
+                service_group: Download
+                service_name: Radarr
+                index: 0  # its first widget; the default is this calendar's own position
+
+- Listen:
+    - Navidrome:
+        icon: navidrome.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/music/
+        description: Music
+        siteMonitor: https://{{HOMEPAGE_VAR_HOST}}/music/rest/ping.view
+        widgets:
+          - type: navidrome
+            url: https://{{HOMEPAGE_VAR_HOST}}/music
+            user: admin
+            token: "{{HOMEPAGE_VAR_NAVIDROME_TOKEN}}"
+            salt: "{{HOMEPAGE_VAR_NAVIDROME_SALT}}"
+          - type: customapi
+            # Newest albums.
+            url: https://{{HOMEPAGE_VAR_HOST}}/music/rest/getAlbumList2?u=admin&t={{HOMEPAGE_VAR_NAVIDROME_TOKEN}}&s={{HOMEPAGE_VAR_NAVIDROME_SALT}}&v=1.16.1&c=homepage&f=json&type=newest&size=4
+            refreshInterval: 300000
+            display: dynamic-list
+            mappings:
+              items: subsonic-response.albumList2.album
+              name: name
+              label: artist
+    - Lidarr:
+        icon: lidarr.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/lidarr/
+        description: Finds albums
+        siteMonitor: http://127.0.0.1:8686/lidarr/ping
+        widgets:
+          # Not the lidarr widget: it loads the full 5 MB artist list on each refresh.
+          - type: customapi
+            url: http://127.0.0.1:8686/lidarr/api/v1/wanted/missing?pageSize=1
+            headers:
+              X-Api-Key: "{{HOMEPAGE_VAR_LIDARR_KEY}}"
+            mappings:
+              - field: totalRecords
+                label: Albums wanted
+          - type: customapi
+            # Newest albums it still looks for.
+            url: http://127.0.0.1:8686/lidarr/api/v1/wanted/missing?pageSize=4&sortKey=albums.releaseDate&sortDirection=descending&includeArtist=true
+            headers:
+              X-Api-Key: "{{HOMEPAGE_VAR_LIDARR_KEY}}"
+            refreshInterval: 300000
+            display: dynamic-list
+            mappings:
+              items: records
+              name: title
+              label: artist.artistName
+    - slskd:
+        icon: slskd.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/slskd/
+        description: Soulseek downloads
+        siteMonitor: http://127.0.0.1:5030/slskd/health
+        widget:
+          type: slskd
+          url: http://127.0.0.1:5030/slskd
+          # slskd runs without a login behind the gate; the widget needs some key.
+          key: none
+          fields: ["slskStatus", "downloads", "uploads", "sharedFiles"]
+
+- Download:
+    - qBittorrent:
+        icon: qbittorrent.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/qbit/
+        description: Torrents
+        siteMonitor: http://127.0.0.1:8081/api/v2/app/version
+        widgets:
+          - type: qbittorrent
+            url: http://127.0.0.1:8081
+            # qBittorrent trusts the gate's localhost address, so no login.
+            username: ""
+            password: ""
+          - type: customapi
+            # Newest torrents and how much of each is done.
+            url: http://127.0.0.1:8081/api/v2/torrents/info?sort=added_on&reverse=true&limit=4
+            display: dynamic-list
+            mappings:
+              name: name
+              label: progress
+              format: percent
+              scale: 100
+    - Sonarr:
+        icon: sonarr.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/sonarr/
+        description: Finds shows
+        siteMonitor: http://127.0.0.1:8989/sonarr/ping
+        widgets:
+          - type: sonarr
+            url: http://127.0.0.1:8989/sonarr
+            key: "{{HOMEPAGE_VAR_SONARR_KEY}}"
+            enableQueue: true
+          - type: customapi
+            # Last episodes downloaded.
+            url: http://127.0.0.1:8989/sonarr/api/v3/history?pageSize=4&sortKey=date&sortDirection=descending&eventType=3&includeSeries=true&includeEpisode=true
+            headers:
+              X-Api-Key: "{{HOMEPAGE_VAR_SONARR_KEY}}"
+            refreshInterval: 300000
+            display: dynamic-list
+            mappings:
+              items: records
+              name: episode.title
+              label: series.title
+    - Radarr:
+        icon: radarr.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/radarr/
+        description: Finds movies
+        siteMonitor: http://127.0.0.1:7878/radarr/ping
+        widgets:
+          - type: radarr
+            url: http://127.0.0.1:7878/radarr
+            key: "{{HOMEPAGE_VAR_RADARR_KEY}}"
+            enableQueue: true
+          - type: customapi
+            # Last movies downloaded.
+            url: http://127.0.0.1:7878/radarr/api/v3/history?pageSize=4&sortKey=date&sortDirection=descending&eventType=3&includeMovie=true
+            headers:
+              X-Api-Key: "{{HOMEPAGE_VAR_RADARR_KEY}}"
+            refreshInterval: 300000
+            display: dynamic-list
+            mappings:
+              items: records
+              name: movie.title
+              label: date
+              format: relativeDate
+    - Prowlarr:
+        icon: prowlarr.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/prowlarr/
+        description: Torrent sites
+        siteMonitor: http://127.0.0.1:9696/prowlarr/ping
+        widget:
+          type: prowlarr
+          url: http://127.0.0.1:9696/prowlarr
+          key: "{{HOMEPAGE_VAR_PROWLARR_KEY}}"
+
+- System:
+    - Login:
+        icon: authelia.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/auth/
+        description: Accounts (Authelia)
+        siteMonitor: http://127.0.0.1:9091/api/health
+    - AI chat:
+        icon: mdi-robot-outline
+        description: Qwen 27B gateway
+        siteMonitor: http://127.0.0.1:8100/health

@@ -52,7 +52,7 @@ http://:17878 {
 	reverse_proxy 127.0.0.1:7878
 }
 
-# Seerr's pages come from the lab on port 5055, so its Origin has the port. Links from the hub on
+# Seerr's pages come from the lab on port 5055, so its Origin has the port. Links from the home page on
 # port 443 are same-site, so same-site page loads may pass; same-site API calls may not.
 http://:15055 {
 	# Only Docker's port proxy (the PC's 127.0.0.1 ports) may come in, not other containers on

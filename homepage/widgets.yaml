@@ -1,0 +1,19 @@
+# Top bar: PC load and the disk that holds the music and video.
+- greeting:
+    text_size: xl
+    text: Home lab
+- resources:
+    cpu: true
+    memory: true
+    cputemp: true
+    uptime: true
+    units: metric
+- resources:
+    label: Disk
+    disk: /
+    expanded: true
+- datetime:
+    text_size: l
+    format:
+      dateStyle: medium
+      timeStyle: short

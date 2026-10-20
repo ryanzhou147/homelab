@@ -1,0 +1,31 @@
+# Home page look. The photo is from Unsplash (free license), stored in images/.
+title: Home lab
+theme: dark
+color: slate
+headerStyle: boxed
+background:
+  image: /images/background.jpg
+  blur: sm
+  brightness: 75
+cardBlur: md
+statusStyle: dot
+hideVersion: true
+useEqualHeights: true
+target: _self
+quicklaunch:
+  searchDescriptions: true
+  hideInternetSearch: true
+  hideVisitURL: true
+layout:
+  Watch:
+    style: row
+    columns: 2
+  Listen:
+    style: row
+    columns: 3
+  Download:
+    style: row
+    columns: 4
+  System:
+    style: row
+    columns: 3

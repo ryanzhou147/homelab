@@ -88,10 +88,9 @@
 	handle_path /qbit/* {
 		import admin 127.0.0.1:8081
 	}
+	# The home page shows data from the admin-only apps, so it is admin-only too.
 	handle {
-		import login
-		root * /srv/hub
-		file_server
+		import admin 127.0.0.1:3010
 	}
 }
 
