@@ -49,13 +49,10 @@ pub fn run(args: Args) -> Result<()> {
     println!("Found: {url}");
 
     // Download to the artist directory with spotdl.
-    // The name comes from Spotify or Lidarr: keep it one folder below music/.
-    let folder = artist.replace('/', "-");
-    anyhow::ensure!(
-        !matches!(folder.as_str(), "" | "." | ".."),
-        "bad artist folder name {artist:?}"
-    );
-    let artist_dir = home().join("homelab-media").join("music").join(folder);
+    let artist_dir = home()
+        .join("homelab-media")
+        .join("music")
+        .join(artist_folder(artist)?);
     std::fs::create_dir_all(&artist_dir)?;
     let status = Command::new("spotdl")
         .args(spotdl_args(&url, &client_id, &client_secret))
@@ -143,8 +140,24 @@ fn search_album(
         .context("Spotify album has no external_urls.spotify")
 }
 
+/// The name comes from Spotify or Lidarr: keep it one folder below music/.
+fn artist_folder(artist: &str) -> Result<String> {
+    let folder = artist.replace('/', "-");
+    anyhow::ensure!(
+        !matches!(folder.as_str(), "" | "." | ".."),
+        "bad artist folder name {artist:?}"
+    );
+    Ok(folder)
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn artist_folder_stays_one_level_below_music() {
+        assert_eq!(super::artist_folder("AC/DC").unwrap(), "AC-DC");
+        assert!(super::artist_folder("..").is_err() && super::artist_folder("").is_err());
+    }
+
     use super::*;
 
     #[test]
