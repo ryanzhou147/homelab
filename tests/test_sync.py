@@ -257,3 +257,19 @@ def test_playlist_is_saved_newest_added_first_like_spotify_date_added_sort():
     navidrome = Navidrome()
     _mod.sync_playlist({"id": "p1", "name": "P"}, Spotify(), navidrome, None, False, {}, 1, 1)
     assert navidrome.saved == ["new", "mid", "old"]
+
+
+def test_liked_songs_are_read_from_the_saved_tracks_endpoint(monkeypatch):
+    urls = []
+
+    def fake_get(url, headers=()):
+        urls.append(url)
+        return {"items": [{"added_at": "2026-10-01T00:00:00Z",
+                           "track": {**SPOTIFY_TRACK, "type": "track"}}], "next": None}
+
+    monkeypatch.setattr(_mod, "http_get", fake_get)
+    client = _mod.SpotifyClient("id", "secret", "refresh")
+    monkeypatch.setattr(client, "_ensure_token", lambda: None)
+    tracks = client.tracks(_mod.LIKED["id"])
+    assert urls == [f"{_mod.SPOTIFY_API}/me/tracks?limit=50"]
+    assert tracks[0]["added_at"] == "2026-10-01T00:00:00Z"

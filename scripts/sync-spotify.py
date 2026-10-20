@@ -52,7 +52,9 @@ LIDARR_URL = "http://127.0.0.1:8686/lidarr/api/v1"
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API = "https://api.spotify.com/v1"
-SCOPES = "playlist-read-private playlist-read-collaborative"
+SCOPES = "playlist-read-private playlist-read-collaborative user-library-read"
+# Liked Songs is not a playlist in the API; this id makes tracks() read /me/tracks instead.
+LIKED = {"id": "liked", "name": "Liked Songs"}
 REDIRECT_URI = "http://127.0.0.1:18080/callback"
 AUTH_PORT = 18080
 
@@ -243,10 +245,13 @@ class SpotifyClient:
 
         Uses GET /playlists/{id} and paginates through the top-level 'items'
         object. The dedicated /tracks sub-endpoint is blocked in development mode.
+        Liked Songs (LIKED) reads /me/tracks, 50 per page.
         """
         result = []
-        url: str | None = f"{SPOTIFY_API}/playlists/{playlist_id}?limit=100"
-        first = True
+        liked = playlist_id == LIKED["id"]
+        url: str | None = (f"{SPOTIFY_API}/me/tracks?limit=50" if liked
+                           else f"{SPOTIFY_API}/playlists/{playlist_id}?limit=100")
+        first = not liked
         while url:
             self._ensure_token()
             data = http_get(url, {"Authorization": f"Bearer {self._access_token}"})
@@ -311,11 +316,11 @@ def spotify_auth(client_id: str, client_secret: str) -> str:
     t = threading.Thread(target=_serve, daemon=True)
     t.start()
     print(f"Waiting for authorization on port {AUTH_PORT}...")
-    done.wait(timeout=120)
+    done.wait(timeout=600)
     server.server_close()
 
     if not code_holder:
-        sys.exit("No authorization code received within 120 s.")
+        sys.exit("No authorization code received within 10 minutes.")
 
     basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
     resp = http_post(SPOTIFY_TOKEN_URL,
@@ -327,7 +332,8 @@ def spotify_auth(client_id: str, client_secret: str) -> str:
 
 class CachedSpotify:
     """Fetches a playlist's tracks only when its snapshot_id changes, and serves the
-    last copy while Spotify rate limits. Each fill-loop round then costs one API call."""
+    last copy while Spotify rate limits. Each fill-loop round then costs one API call, plus
+    about 15 for Liked Songs, which has no snapshot_id."""
 
     def __init__(self, client: SpotifyClient, path: Path):
         self._client = client
@@ -666,7 +672,7 @@ def main() -> None:
         except Exception as err:
             print(f"Lidarr not available, skipping: {err}", file=sys.stderr)
 
-    playlists = spotify.playlists()
+    playlists = [*spotify.playlists(), LIKED]
     total_missing: list[dict] = []
     skipped = False
 

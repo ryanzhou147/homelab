@@ -16,19 +16,13 @@ quicklaunch:
   searchDescriptions: true
   hideInternetSearch: true
   hideVisitURL: true
+# Four columns side by side, so the whole page fits on one screen.
 layout:
   Watch:
-    style: row
-    columns: 2
+    style: column
   Listen:
-    style: row
-    columns: 3
+    style: column
   Download:
-    style: row
-    columns: 4
+    style: column
   Graphs:
-    style: row
-    columns: 2
-  System:
-    style: row
-    columns: 3
+    style: column
