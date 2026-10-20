@@ -49,7 +49,13 @@ pub fn run(args: Args) -> Result<()> {
     println!("Found: {url}");
 
     // Download to the artist directory with spotdl.
-    let artist_dir = home().join("homelab-media").join("music").join(artist);
+    // The name comes from Spotify or Lidarr: keep it one folder below music/.
+    let folder = artist.replace('/', "-");
+    anyhow::ensure!(
+        !matches!(folder.as_str(), "" | "." | ".."),
+        "bad artist folder name {artist:?}"
+    );
+    let artist_dir = home().join("homelab-media").join("music").join(folder);
     std::fs::create_dir_all(&artist_dir)?;
     let status = Command::new("spotdl")
         .args(spotdl_args(&url, &client_id, &client_secret))
@@ -65,6 +71,8 @@ fn spotdl_args(url: &str, client_id: &str, client_secret: &str) -> Vec<OsString>
         url,
         "--client-id",
         client_id,
+        // shortcut: other users on this PC can read the secret in the process list; this PC has
+        // one user. Move it to spotdl's config file (mode 600) if that changes.
         "--client-secret",
         client_secret,
         "--output",

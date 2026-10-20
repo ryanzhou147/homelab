@@ -217,7 +217,7 @@ fn setting(file: &HashMap<String, String>, key: &str) -> String {
 }
 
 fn save_env_key(path: &Path, key: &str, value: &str) -> Result<()> {
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::OpenOptionsExt;
     let text = if path.exists() {
         std::fs::read_to_string(path)?
     } else {
@@ -230,8 +230,16 @@ fn save_env_key(path: &Path, key: &str, value: &str) -> Result<()> {
         None => lines.push(line),
     }
     let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, lines.join("\n") + "\n")?;
-    std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))?;
+    // Mode 600 from the start, so the token is never readable by others, not even briefly.
+    let _ = std::fs::remove_file(&tmp);
+    std::io::Write::write_all(
+        &mut std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&tmp)?,
+        (lines.join("\n") + "\n").as_bytes(),
+    )?;
     std::fs::rename(&tmp, path)?;
     Ok(())
 }

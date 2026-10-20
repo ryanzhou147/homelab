@@ -415,9 +415,16 @@ impl LiveLab {
     }
 
     fn navidrome_status(&self, view: &str) -> Result<Value> {
+        // A salted token, as the Navidrome client sends, so the password never goes in a URL.
+        let salt = crate::navidrome::token_hex(8)?;
+        let token = hex::encode(<md5::Md5 as md5::Digest>::digest(format!(
+            "{}{salt}",
+            self.navidrome_password
+        )));
         let query = crate::text::urlencode(&[
             ("u", &self.navidrome_user),
-            ("p", &self.navidrome_password),
+            ("t", &token),
+            ("s", &salt),
             ("v", "1.16.1"),
             ("c", "fill-loop"),
             ("f", "json"),
