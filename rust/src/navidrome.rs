@@ -257,4 +257,70 @@ mod tests {
         ));
         assert!(!is_match(&t, &song("s1", "Money Trees", "Jay Rock")));
     }
+
+    #[test]
+    fn save_playlist_sends_450_songs_in_order_in_chunks_of_200() {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let port = server.server_addr().to_ip().unwrap().port();
+        let seen = std::thread::spawn(move || {
+            let mut calls = Vec::new();
+            // A timeout, not recv(): a wrong chunk count must fail the test, not hang it.
+            for _ in 0..4 {
+                let Some(req) = server.recv_timeout(Duration::from_secs(2)).unwrap() else {
+                    break;
+                };
+                let url = req.url().to_string();
+                let method = url
+                    .split('?')
+                    .next()
+                    .unwrap()
+                    .rsplit('/')
+                    .next()
+                    .unwrap()
+                    .to_string();
+                let ids: Vec<String> = (url.split('&'))
+                    .filter_map(|kv| {
+                        kv.strip_prefix("songId=")
+                            .or(kv.strip_prefix("songIdToAdd="))
+                    })
+                    .map(str::to_string)
+                    .collect();
+                let body = match method.as_str() {
+                    "getPlaylists" => json!({"playlists": {}}),
+                    "createPlaylist" => json!({"playlist": {"id": "p1"}}),
+                    _ => json!({}),
+                };
+                let mut reply = body;
+                reply["status"] = json!("ok");
+                let reply = json!({"subsonic-response": reply}).to_string();
+                req.respond(tiny_http::Response::from_string(reply))
+                    .unwrap();
+                calls.push((method, ids));
+            }
+            calls
+        });
+        let songs: Vec<String> = (0..450).map(|i| format!("s{i}")).collect();
+        let navidrome = Navidrome::new(&format!("http://127.0.0.1:{port}"), "u", "p", "test");
+        navidrome.save_playlist("Big", &songs).unwrap();
+        let calls = seen.join().unwrap();
+        let methods: Vec<&str> = calls.iter().map(|(m, _)| m.as_str()).collect();
+        assert_eq!(
+            methods,
+            [
+                "getPlaylists",
+                "createPlaylist",
+                "updatePlaylist",
+                "updatePlaylist"
+            ]
+        );
+        let sizes: Vec<usize> = calls.iter().map(|(_, ids)| ids.len()).collect();
+        assert_eq!(sizes, [0, 200, 200, 50]);
+        assert_eq!(
+            calls
+                .into_iter()
+                .flat_map(|(_, ids)| ids)
+                .collect::<Vec<_>>(),
+            songs
+        );
+    }
 }
