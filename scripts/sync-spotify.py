@@ -263,6 +263,7 @@ class SpotifyClient:
                     "artists": [a["name"] for a in track.get("artists", [])],
                     "album": track.get("album", {}).get("name", ""),
                     "song": spotdl_song(track),
+                    "added_at": item.get("added_at") or "",
                 })
             url = page.get("next")
         return result
@@ -556,6 +557,9 @@ def sync_playlist(playlist: dict, spotify: SpotifyClient | CachedSpotify,
               file=sys.stderr)
         return {"name": name, "matched": 0, "total": 0, "missing": []}
 
+    # Newest added first, like Spotify's "Date added" sort. The sort is stable, so cached tracks
+    # without a date keep Spotify's custom order.
+    tracks = sorted(tracks, key=lambda t: t.get("added_at", ""), reverse=True)
     song_ids = []
     missing: list[dict] = []
     for track in tracks:

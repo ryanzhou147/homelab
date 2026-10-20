@@ -236,3 +236,24 @@ def test_rate_limited_playlist_without_cache_is_skipped_not_fatal():
 
 def test_spotdl_song_accepts_a_null_duration():
     assert _mod.spotdl_song({**SPOTIFY_TRACK, "duration_ms": None})["duration"] == 0
+
+
+def test_playlist_is_saved_newest_added_first_like_spotify_date_added_sort():
+    class Spotify:
+        def tracks(self, playlist_id):
+            return [{**_track("old"), "added_at": "2024-01-01T00:00:00Z"},
+                    {**_track("new"), "added_at": "2026-10-01T00:00:00Z"},
+                    {**_track("mid"), "added_at": "2025-05-01T00:00:00Z"}]
+
+    class Navidrome:
+        saved = None
+
+        def find_track(self, track):
+            return track["title"]
+
+        def save_playlist(self, name, song_ids):
+            self.saved = song_ids
+
+    navidrome = Navidrome()
+    _mod.sync_playlist({"id": "p1", "name": "P"}, Spotify(), navidrome, None, False, {}, 1, 1)
+    assert navidrome.saved == ["new", "mid", "old"]
