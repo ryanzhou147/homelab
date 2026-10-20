@@ -12,3 +12,14 @@ pub fn data_dir() -> PathBuf {
 pub fn home() -> PathBuf {
     PathBuf::from(std::env::var_os("HOME").expect("HOME is not set"))
 }
+
+/// KEY=value lines of an env file; a missing file gives no keys, as in the Python scripts.
+pub fn load_env(path: &std::path::Path) -> std::collections::HashMap<String, String> {
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter_map(|l| l.split_once('='))
+        .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+        .collect()
+}
