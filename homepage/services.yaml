@@ -215,6 +215,44 @@
             - field: last
               label: Last song
 
+# Panels of Grafana's "Home lab media" dashboard (deploy/monitoring in the infer-engine repo).
+- Graphs:
+    - Download speed:
+        widget:
+          type: iframe
+          name: download-speed
+          src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=1&theme=dark&from=now-6h&to=now&refresh=30s
+          classes: h-64
+          loadingStrategy: lazy
+    - Services:
+        widget:
+          type: iframe
+          name: services
+          src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=2&theme=dark&from=now-6h&to=now&refresh=30s
+          classes: h-64
+          loadingStrategy: lazy
+    - Music downloads:
+        widget:
+          type: iframe
+          name: music-downloads
+          src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=3&theme=dark&from=now-6h&to=now&refresh=30s
+          classes: h-64
+          loadingStrategy: lazy
+    - Download queues:
+        widget:
+          type: iframe
+          name: download-queues
+          src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=4&theme=dark&from=now-6h&to=now&refresh=30s
+          classes: h-64
+          loadingStrategy: lazy
+    - CPU temperature and load:
+        widget:
+          type: iframe
+          name: cpu-temperature-and-load
+          src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=5&theme=dark&from=now-6h&to=now&refresh=30s
+          classes: h-64
+          loadingStrategy: lazy
+
 - System:
     - Login:
         icon: authelia.svg

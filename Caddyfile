@@ -83,6 +83,11 @@
 	handle /radarr* {
 		import admin 127.0.0.1:7878
 	}
+	# Graphs (Grafana with anonymous viewers, in the infer-engine repo's deploy/monitoring);
+	# the home page embeds its panels.
+	handle /grafana* {
+		import admin 127.0.0.1:3000
+	}
 	# qBittorrent has no URL base setting, so Caddy removes the /qbit prefix.
 	redir /qbit /qbit/ 308
 	handle_path /qbit/* {

@@ -26,6 +26,9 @@ layout:
   Download:
     style: row
     columns: 4
+  Graphs:
+    style: row
+    columns: 2
   System:
     style: row
     columns: 3
