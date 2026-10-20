@@ -8,11 +8,17 @@ mod exported;
 mod fill_loop;
 mod homepage_secrets;
 mod import;
+mod lidarr;
 mod merge;
+mod merge_id3;
+mod merge_tags;
 mod metrics;
+mod navidrome;
 mod spotdl_album;
+mod spotify;
 mod status;
 mod sync;
+mod text;
 
 use clap::{Parser, Subcommand};
 
