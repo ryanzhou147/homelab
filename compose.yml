@@ -42,6 +42,8 @@ services:
     volumes:
       - ./homepage:/app/config:ro
       - ./homepage/images:/app/public/images:ro
+      # downloads.json from scripts/download-status.py (the homelab-download-status timer).
+      - ${DATA}/status:/app/public/status:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "--header", "Host: ${HOST}", "http://127.0.0.2:3010/api/healthcheck"]
     # The image's page holds default settings until a rebuild, so rebuild it after each start.

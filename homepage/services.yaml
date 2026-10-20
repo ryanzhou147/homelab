@@ -183,6 +183,38 @@
           url: http://127.0.0.1:9696/prowlarr
           key: "{{HOMEPAGE_VAR_PROWLARR_KEY}}"
 
+    - Music downloads:
+        icon: spotify.svg
+        description: spotdl, songs from your Spotify playlists
+        widget:
+          type: customapi
+          # Homepage serves the file itself; its Host check wants the lab's name.
+          url: http://127.0.0.2:3010/status/downloads.json
+          headers:
+            Host: "{{HOMEPAGE_VAR_HOST}}"
+          refreshInterval: 30000
+          display: list
+          mappings:
+            - field: running
+              label: Status
+              remap:
+                - value: true
+                  to: Downloading
+                - any: true
+                  to: Idle
+            - field: percent
+              label: Progress
+              suffix: "%"
+            - field: done
+              label: Downloaded
+              additionalField:
+                field: total
+                prefix: of
+            - field: failed
+              label: Not found
+            - field: last
+              label: Last song
+
 - System:
     - Login:
         icon: authelia.svg
