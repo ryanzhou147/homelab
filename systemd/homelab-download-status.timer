@@ -1,5 +1,5 @@
 [Unit]
-Description=Update the home page's music download progress every minute
+Description=Write the music download progress and the newest shows each minute
 
 [Timer]
 OnBootSec=1min

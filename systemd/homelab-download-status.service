@@ -1,6 +1,7 @@
 [Unit]
-Description=Write the music download progress for the home lab home page
+Description=Write the music download progress and the newest shows for the home lab home page
 
 [Service]
 Type=oneshot
-ExecStart=%h/.cargo/bin/homelab download-status
+ExecStart=-%h/.cargo/bin/homelab download-status
+ExecStart=%h/.cargo/bin/homelab recent

@@ -13,6 +13,7 @@ mod merge_id3;
 mod merge_tags;
 mod metrics;
 mod navidrome;
+mod recent;
 mod spotdl_album;
 mod spotify;
 mod status;
@@ -42,6 +43,8 @@ enum Command {
     Metrics(metrics::Args),
     /// Write the spotdl progress file for the home page.
     DownloadStatus(status::Args),
+    /// Write the newest shows and movies, with episode numbers, for the home page.
+    Recent(recent::Args),
     /// Write the home page's API keys to homepage.env.
     HomepageSecrets(homepage_secrets::Args),
     /// Download one album with spotdl.
@@ -62,6 +65,7 @@ fn main() -> anyhow::Result<()> {
         Command::MergeAlbums(a) => merge::run(a),
         Command::Metrics(a) => metrics::run(a),
         Command::DownloadStatus(a) => status::run(a),
+        Command::Recent(a) => recent::run(a),
         Command::HomepageSecrets(a) => homepage_secrets::run(a),
         Command::SpotdlAlbum(a) => spotdl_album::run(a),
         Command::ConfigureMusicFetch(a) => configure::run(a),

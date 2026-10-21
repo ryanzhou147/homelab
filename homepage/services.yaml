@@ -14,16 +14,16 @@
             enableBlocks: true
             enableNowPlaying: true
           - type: customapi
-            # Newest episodes and movies.
-            url: http://127.0.0.1:8096/video/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Episode,Movie&Recursive=true&Limit=3
+            # Newest episodes and movies, from 'homelab recent', which adds the episode numbers.
+            url: http://127.0.0.2:3010/status/recent.json
             headers:
-              Authorization: MediaBrowser Token="{{HOMEPAGE_VAR_JELLYFIN_KEY}}"
-            refreshInterval: 300000
+              Host: "{{HOMEPAGE_VAR_HOST}}"
+            refreshInterval: 60000
             display: dynamic-list
             mappings:
-              items: Items
-              name: Name
-              label: SeriesName
+              items: jellyfin
+              name: name
+              label: label
     - Requests:
         icon: jellyseerr.svg
         href: https://{{HOMEPAGE_VAR_HOST}}:5055/
@@ -163,16 +163,16 @@
             url: http://127.0.0.1:8989/sonarr
             key: "{{HOMEPAGE_VAR_SONARR_KEY}}"
           - type: customapi
-            # Last episodes downloaded.
-            url: http://127.0.0.1:8989/sonarr/api/v3/history?pageSize=3&sortKey=date&sortDirection=descending&eventType=3&includeSeries=true&includeEpisode=true
+            # Last episodes downloaded, from 'homelab recent', which adds the episode numbers.
+            url: http://127.0.0.2:3010/status/recent.json
             headers:
-              X-Api-Key: "{{HOMEPAGE_VAR_SONARR_KEY}}"
-            refreshInterval: 300000
+              Host: "{{HOMEPAGE_VAR_HOST}}"
+            refreshInterval: 60000
             display: dynamic-list
             mappings:
-              items: records
-              name: episode.title
-              label: series.title
+              items: sonarr
+              name: name
+              label: label
     - Radarr:
         icon: radarr.svg
         href: https://{{HOMEPAGE_VAR_HOST}}/radarr/
@@ -182,17 +182,16 @@
             url: http://127.0.0.1:7878/radarr
             key: "{{HOMEPAGE_VAR_RADARR_KEY}}"
           - type: customapi
-            # Last movies downloaded.
-            url: http://127.0.0.1:7878/radarr/api/v3/history?pageSize=3&sortKey=date&sortDirection=descending&eventType=3&includeMovie=true
+            # Last movies downloaded, from 'homelab recent'.
+            url: http://127.0.0.2:3010/status/recent.json
             headers:
-              X-Api-Key: "{{HOMEPAGE_VAR_RADARR_KEY}}"
-            refreshInterval: 300000
+              Host: "{{HOMEPAGE_VAR_HOST}}"
+            refreshInterval: 60000
             display: dynamic-list
             mappings:
-              items: records
-              name: movie.title
-              label: date
-              format: relativeDate
+              items: radarr
+              name: name
+              label: label
     - Prowlarr:
         icon: prowlarr.svg
         href: https://{{HOMEPAGE_VAR_HOST}}/prowlarr/
