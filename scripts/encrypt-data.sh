@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Moves the lab's data (logins, service keys, S3 storage, databases) into a LUKS2 vault opened
+# Moves the lab's data (logins, service keys, databases) into a LUKS2 vault opened
 # only by your master password, so nothing can be read from the drive while the vault is locked.
 # Media stays outside the vault. After a reboot the lab stays off until scripts/vault-unlock.sh.
 # Usually run by setup-master-password.sh; alone: sudo ./scripts/encrypt-data.sh

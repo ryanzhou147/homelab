@@ -63,9 +63,6 @@
 	handle /video* {
 		reverse_proxy 127.0.0.1:8096
 	}
-	handle /storage* {
-		import admin 127.0.0.1:3909
-	}
 	# Music fetchers: Lidarr and slskd have no login of their own and trust this one.
 	handle /lidarr* {
 		import admin 127.0.0.1:8686
@@ -111,11 +108,3 @@
 	import admin 127.0.0.1:5055
 }
 
-# S3 API for code and backup tools: authenticated by S3 access keys, not the login page.
-{$HOST}:8443 {
-	bind {$TS_IP}
-	tls {
-		get_certificate tailscale
-	}
-	reverse_proxy 127.0.0.1:3900
-}

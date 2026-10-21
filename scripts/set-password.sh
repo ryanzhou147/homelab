@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Sets one password for a user's lab login (Authelia), Jellyfin and Navidrome, then checks each.
 # Run it in a terminal: ./scripts/set-password.sh [username]   (default: admin)
-# S3 access keys are separate: S3 tools always sign requests with keys, never a password.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source .env
