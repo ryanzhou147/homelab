@@ -80,7 +80,7 @@
 	handle /radarr* {
 		import admin 127.0.0.1:7878
 	}
-	# Graphs (Grafana with anonymous viewers, in the infer-engine repo's deploy/monitoring);
+	# Graphs (Grafana with anonymous viewers on 127.0.0.1:3000);
 	# the home page embeds its panels.
 	handle /grafana* {
 		import admin 127.0.0.1:3000

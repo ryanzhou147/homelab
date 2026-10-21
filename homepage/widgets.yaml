@@ -8,7 +8,7 @@
     cputemp: true
     uptime: true
     # Download and upload speed of the PC's Wi-Fi, all programs together.
-    network: wlp8s0
+    network: true
     units: metric
 - resources:
     label: Disk

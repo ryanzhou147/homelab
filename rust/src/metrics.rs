@@ -201,7 +201,7 @@ fn spotdl(lab: &Lab, _: Get, _: &str, out: &mut Vec<Sample>) -> anyhow::Result<(
     Ok(())
 }
 
-/// Tctl of the Ryzen (k10temp), in degrees C.
+/// Tctl of an AMD CPU (k10temp), in degrees C.
 fn cpu_temperature(hwmon: &Path) -> anyhow::Result<Option<f64>> {
     for chip in std::fs::read_dir(hwmon)? {
         let chip = chip?.path();

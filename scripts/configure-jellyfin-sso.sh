@@ -4,13 +4,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source .env
+: "${LAB_USER:?Set LAB_USER in .env}"
 J=http://127.0.0.1:8096/video
 S="$DATA/secrets"
 AUTH='MediaBrowser Client="homelab-setup", Device="cli", DeviceId="homelab-setup", Version="1.0"'
-read -rsp "Your password (Jellyfin admin admin): " admin_pw; echo
+read -rsp "Your password (Jellyfin admin $LAB_USER): " admin_pw; echo
 token=$(curl -sf -X POST "$J/Users/AuthenticateByName" -H 'Content-Type: application/json' \
   -H "Authorization: $AUTH" \
-  -d "$(python3 -c 'import json,sys; print(json.dumps({"Username": "admin", "Pw": sys.argv[1]}))' "$admin_pw")" |
+  -d "$(python3 -c 'import json,sys; print(json.dumps({"Username": sys.argv[1], "Pw": sys.argv[2]}))' "$LAB_USER" "$admin_pw")" |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["AccessToken"])')
 H="Authorization: $AUTH, Token=\"$token\""
 

@@ -37,6 +37,7 @@ services:
       PGID: "1000"
       HOMEPAGE_ALLOWED_HOSTS: ${HOST}
       HOMEPAGE_VAR_HOST: ${HOST}
+      HOMEPAGE_VAR_LAB_USER: ${LAB_USER}
       LOG_TARGETS: stdout
     env_file: ${DATA}/secrets/homepage.env
     volumes:
@@ -97,9 +98,9 @@ services:
     # The SSO plugin calls Authelia at https://${HOST}/auth; resolve that to the Tailscale IP.
     extra_hosts:
       - "${HOST}:${TS_IP}"
-    # Transcodes on the Ryzen's built-in graphics; the RTX 3060 is busy with the 27B.
+    # Transcodes on the GPU that RENDER_DEVICE names (ls /dev/dri).
     devices:
-      - /dev/dri/renderD129:/dev/dri/renderD129
+      - ${RENDER_DEVICE}:${RENDER_DEVICE}
     group_add:
       - "${RENDER_GID}"
     volumes:
@@ -146,7 +147,7 @@ services:
       LIDARR__AUTH__METHOD: External
       LIDARR__LOG__ANALYTICSENABLED: "False"
     # LIDARR__AUTH__APIKEY, shared with Soularr.
-    env_file: ${DATA}/secrets/lidarr.env
+    env_file: [{path: "${DATA}/secrets/lidarr.env", required: false}]  # made by setup-music-fetch.sh
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8686/lidarr/ping"]
       interval: 30s
@@ -181,7 +182,7 @@ services:
       # Nothing is shared, and the Soulseek port is not forwarded: only peers that accept
       # incoming connections can send files.
     # SLSKD_SLSK_USERNAME and SLSKD_SLSK_PASSWORD: the Soulseek account from the setup script.
-    env_file: ${DATA}/secrets/slskd.env
+    env_file: [{path: "${DATA}/secrets/slskd.env", required: false}]  # made by setup-music-fetch.sh
     volumes:
       - ${DATA}/slskd:/app
       - ${MEDIA}/downloads:/data/downloads

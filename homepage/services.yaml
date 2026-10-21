@@ -56,12 +56,12 @@
         widgets:
           - type: navidrome
             url: https://{{HOMEPAGE_VAR_HOST}}/music
-            user: admin
+            user: "{{HOMEPAGE_VAR_LAB_USER}}"
             token: "{{HOMEPAGE_VAR_NAVIDROME_TOKEN}}"
             salt: "{{HOMEPAGE_VAR_NAVIDROME_SALT}}"
           - type: customapi
             # Newest albums.
-            url: https://{{HOMEPAGE_VAR_HOST}}/music/rest/getAlbumList2?u=admin&t={{HOMEPAGE_VAR_NAVIDROME_TOKEN}}&s={{HOMEPAGE_VAR_NAVIDROME_SALT}}&v=1.16.1&c=homepage&f=json&type=newest&size=3
+            url: https://{{HOMEPAGE_VAR_HOST}}/music/rest/getAlbumList2?u={{HOMEPAGE_VAR_LAB_USER}}&t={{HOMEPAGE_VAR_NAVIDROME_TOKEN}}&s={{HOMEPAGE_VAR_NAVIDROME_SALT}}&v=1.16.1&c=homepage&f=json&type=newest&size=3
             refreshInterval: 300000
             display: dynamic-list
             mappings:
@@ -201,7 +201,7 @@
           url: http://127.0.0.1:9696/prowlarr
           key: "{{HOMEPAGE_VAR_PROWLARR_KEY}}"
 
-# Panels of Grafana's "Home lab media" dashboard (deploy/monitoring in the infer-engine repo).
+# Panels of Grafana's "Home lab media" dashboard (see Graphs in README.md).
 - Graphs:
     - Last 6 hours:
         widgets:

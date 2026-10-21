@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Sets one password for a user's lab login (Authelia), Jellyfin and Navidrome, then checks each.
-# Run it in a terminal: ./scripts/set-password.sh [username]   (default: admin)
+# Run it in a terminal: ./scripts/set-password.sh [username]   (default: LAB_USER in .env)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source .env
-USER_NAME=${1:-admin}
+: "${LAB_USER:?Set LAB_USER in .env}"
+USER_NAME=${1:-$LAB_USER}
 USERS="$DATA/authelia/users.yml"
 J=http://127.0.0.1:8096/video
 JAUTH='MediaBrowser Client="homelab-setup", Device="cli", DeviceId="homelab-setup", Version="1.0"'
@@ -15,7 +16,7 @@ read -rsp "Again: " pw2; echo
 [ "$pw" = "$pw2" ] || { echo "The passwords differ."; exit 1; }
 [ ${#pw} -ge $MIN_LENGTH ] || { echo "Use at least $MIN_LENGTH characters."; exit 1; }
 # Jellyfin needs the admin's current password to make the change. Nothing stores it.
-read -rsp "Current password of the admin (admin): " admin_pw; echo
+read -rsp "Current password of the admin ($LAB_USER): " admin_pw; echo
 
 json() { python3 -c 'import json,sys; print(json.dumps(dict(zip(sys.argv[1::2], sys.argv[2::2]))))' "$@"; }
 
@@ -37,7 +38,7 @@ docker compose restart authelia >/dev/null
 # 2. Jellyfin: the admin changes the password. Jellyfin asks for the current one when the admin
 #    changes their own, and ignores it for anyone else.
 admin_token=$(curl -sf -X POST "$J/Users/AuthenticateByName" -H 'Content-Type: application/json' \
-  -H "Authorization: $JAUTH" -d "$(json Username admin Pw "$admin_pw")" |
+  -H "Authorization: $JAUTH" -d "$(json Username "$LAB_USER" Pw "$admin_pw")" |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["AccessToken"])')
 H="Authorization: $JAUTH, Token=\"$admin_token\""
 user_id=$(curl -sf "$J/Users" -H "$H" | python3 -c '
@@ -49,6 +50,11 @@ curl -sf -X POST "$J/Users/$user_id/Password" -H "$H" -H 'Content-Type: applicat
 # 3. Navidrome: its CLI only reads passwords from a terminal, so give it one.
 (sleep 3; printf '%s\r' "$pw"; sleep 2; printf '%s\r' "$pw"; sleep 4) |
   script -qec "docker compose exec navidrome /app/navidrome user edit -u $USER_NAME --set-password --datafolder /data" /dev/null >/dev/null
+
+# The Spotify sync and the home page sign in to Navidrome as the admin with this password.
+if [ "$USER_NAME" = "$LAB_USER" ]; then
+	(umask 077; printf 'NAVIDROME_PASSWORD=%s\n' "$pw" >"$DATA/secrets/navidrome.env")
+fi
 
 # Check each login with the new password.
 sleep 5
@@ -62,3 +68,4 @@ nd=$(curl -s -G "$B/music/rest/ping.view" --data-urlencode "u=$USER_NAME" --data
 echo "Lab login: $([ "$lab" = 200 ] && echo ok || echo "failed ($lab)")"
 echo "Jellyfin:  $([ "$jf" = 200 ] && echo ok || echo "failed ($jf)")"
 echo "Music:     $nd"
+[ "$USER_NAME" != "$LAB_USER" ] || echo "Home page: run 'homelab homepage-secrets', then 'docker compose up -d homepage'."
