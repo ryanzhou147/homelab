@@ -1,5 +1,5 @@
 //! Album tags of MP3 and FLAC files for merge-albums. Reads and writes them as mutagen's EasyID3
-//! and FLAC classes do in scripts/merge-split-albums.py, so both programs leave the same tags.
+//! and FLAC classes did in the old Python merge script, so files that it tagged read the same.
 
 use crate::merge_id3::Id3;
 use anyhow::{Result, bail};
@@ -318,5 +318,5 @@ pub fn retag(path: &Path, new: &Tags) -> Result<Tags> {
 }
 
 #[cfg(test)]
-#[path = "merge_parity.rs"]
+#[path = "merge_tags_tests.rs"]
 pub(crate) mod tests;

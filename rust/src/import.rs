@@ -1,5 +1,4 @@
-//! Rebuilds Spotify playlists (Exportify CSV exports) as Navidrome playlists. Port of
-//! scripts/import-spotify-playlists.py.
+//! Rebuilds Spotify playlists (Exportify CSV exports) as Navidrome playlists.
 //!
 //! Each track is matched to a library song by title and artist. Tracks not in the library go to
 //! missing-albums.csv, a shopping list by album with a Bandcamp search link. Asks for the
@@ -237,7 +236,7 @@ mod tests {
         );
     }
 
-    /// Parity check against the script, read-only: prints the matched id of every CSV row.
+    /// Live check, read-only: prints the matched id of every CSV row.
     /// Run with EXPORT_DIR, NAVIDROME_URL and NAVIDROME_PASSWORD set and `-- --ignored`.
     #[test]
     #[ignore]

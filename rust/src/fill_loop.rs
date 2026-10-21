@@ -776,34 +776,4 @@ mod tests {
         assert_eq!(missing_count(&files.missing), Some(2));
         assert_eq!(missing_urls(&files.missing), ["u1", "u2"]);
     }
-
-    #[test]
-    fn priority_list_matches_the_shell_script() {
-        let script = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../scripts/music-fill-loop.sh"
-        ));
-        let Ok(script) = script else { return }; // the script goes away at the switch-over
-        let block = script
-            .split("PRIORITY_ALBUMS=(")
-            .nth(1)
-            .unwrap()
-            .split("\n)")
-            .next()
-            .unwrap();
-        let from_script: Vec<String> = block
-            .lines()
-            .filter_map(|l| {
-                l.trim()
-                    .strip_prefix('"')?
-                    .strip_suffix('"')
-                    .map(|s| s.replace("\\$", "$"))
-            })
-            .collect();
-        let ours: Vec<String> = PRIORITY_ALBUMS
-            .iter()
-            .map(|(a, b)| format!("{a}|{b}"))
-            .collect();
-        assert_eq!(ours, from_script);
-    }
 }

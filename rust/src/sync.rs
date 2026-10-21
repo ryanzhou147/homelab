@@ -1,5 +1,4 @@
 //! Syncs Spotify playlists and Liked Songs to Navidrome and queues missing albums in Lidarr.
-//! Port of scripts/sync-spotify.py.
 //!
 //! One-time OAuth setup (writes $DATA/secrets/spotify.env): `homelab sync-spotify --auth`.
 //! It needs SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET of an app with the redirect URI

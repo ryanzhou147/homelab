@@ -1,5 +1,4 @@
 //! Writes a spotdl list of the songs in Exportify CSV playlists that are not in Navidrome.
-//! Port of scripts/exported-missing-songs.py.
 //!
 //! The song details come from the CSV, because Spotify blocks track lookups for this app. Songs
 //! in spotdl-tried.txt are left out; the caller adds the list's URLs there after spotdl.
