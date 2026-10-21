@@ -23,7 +23,7 @@ services:
 
   # The home page: a card for each app with its live numbers (queue, download speed, streams).
   # On the host network it calls the apps on the PC's 127.0.0.1 ports, as the fetch gate requires.
-  # Run scripts/homepage-secrets.py once before the first start.
+  # Run 'homelab homepage-secrets' once before the first start.
   homepage:
     <<: *local
     image: ghcr.io/gethomepage/homepage:v2.5.0
@@ -42,7 +42,7 @@ services:
     volumes:
       - ./homepage:/app/config:ro
       - ./homepage/images:/app/public/images:ro
-      # downloads.json from scripts/download-status.py (the homelab-download-status timer).
+      # downloads.json from 'homelab download-status' (the homelab-download-status timer).
       - ${DATA}/status:/app/public/status:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "--header", "Host: ${HOST}", "http://127.0.0.2:3010/api/healthcheck"]

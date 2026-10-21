@@ -10,6 +10,6 @@ Environment=NAVIDROME_URL=https://your-pc.your-tailnet.ts.net/music
 EnvironmentFile=%h/homelab-data/secrets/navidrome.env
 EnvironmentFile=-%h/homelab-data/secrets/spotify.env
 WorkingDirectory=%h/Documents/Projects/homelab
-ExecStart=%h/Documents/Projects/homelab/scripts/sync-spotify.py
+ExecStart=%h/.cargo/bin/homelab sync-spotify
 StandardOutput=journal
 StandardError=journal

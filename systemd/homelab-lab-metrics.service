@@ -5,7 +5,7 @@ Description=Prometheus exporter for the home lab apps on 127.0.0.1:9102
 Environment=DATA=%h/homelab-data
 EnvironmentFile=%h/homelab-data/secrets/homepage.env
 EnvironmentFile=%h/Documents/Projects/homelab/.env
-ExecStart=%h/Documents/Projects/homelab/scripts/lab-metrics.py
+ExecStart=%h/.cargo/bin/homelab metrics
 Restart=on-failure
 RestartSec=10
 

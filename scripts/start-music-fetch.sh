@@ -6,6 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source .env
+cargo install --quiet --locked --path rust  # the systemd units run ~/.cargo/bin/homelab
 
 ./scripts/setup-music-fetch.sh
 docker compose up -d lidarr slskd soularr
@@ -30,7 +31,7 @@ systemctl --user enable --now homelab-music-guard.timer
 if [ -f "$DATA/secrets/spotify.env" ] && grep -q SPOTIFY_REFRESH_TOKEN "$DATA/secrets/spotify.env" 2>/dev/null; then
 	systemctl --user enable --now homelab-spotify-sync.timer
 else
-	echo "Spotify sync: run './scripts/sync-spotify.py --auth' once, then re-run this script."
+	echo "Spotify sync: run 'homelab sync-spotify --auth' once, then re-run this script."
 fi
 
-DATA="$DATA" HOST="$HOST" ./scripts/configure-music-fetch.py
+DATA="$DATA" HOST="$HOST" ~/.cargo/bin/homelab configure-music-fetch

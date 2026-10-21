@@ -3,4 +3,4 @@ Description=Stop the home lab music downloads when the media disk is low
 
 [Service]
 Type=oneshot
-ExecStart=%h/Documents/Projects/homelab/scripts/music-disk-guard.sh
+ExecStart=%h/.cargo/bin/homelab disk-guard

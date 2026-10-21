@@ -1,5 +1,5 @@
 # Each card links to the app and shows its live numbers. Homepage calls the apps on 127.0.0.1
-# (the PC's ports); the keys come from homepage.env (scripts/homepage-secrets.py).
+# (the PC's ports); the keys come from homepage.env ('homelab homepage-secrets').
 - Watch:
     - Jellyfin:
         icon: jellyfin.svg

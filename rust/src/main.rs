@@ -1,5 +1,4 @@
-//! The home lab's own programs in one binary: `homelab <command>`. Each command replaces one of
-//! the former Python or shell scripts in ../scripts.
+//! The home lab's own programs in one binary: `homelab <command>`.
 
 mod common;
 mod configure;

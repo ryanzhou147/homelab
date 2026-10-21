@@ -3,4 +3,4 @@ Description=Write the music download progress for the home lab home page
 
 [Service]
 Type=oneshot
-ExecStart=%h/Documents/Projects/homelab/scripts/download-status.py
+ExecStart=%h/.cargo/bin/homelab download-status
