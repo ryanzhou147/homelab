@@ -2,13 +2,12 @@
 //! own. A systemd user timer runs it every 10 minutes. Start them again with
 //!   docker compose start slskd soularr
 
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 
-use crate::common::{home, load_env, repo_dir};
+use crate::common::{media_dir, repo_dir};
 
 const MIN_FREE_GB: u64 = 20;
 const GIB: u64 = 1 << 30;
@@ -18,9 +17,7 @@ pub struct Args {}
 
 pub fn run(_args: Args) -> Result<()> {
     let repo = repo_dir();
-    let env = load_env(&repo.join(".env"));
-    let media = env.get("MEDIA").context("MEDIA is not set in .env")?;
-    let Some(free_gb) = low_gb(df_avail(Path::new(media), "-B1")?) else {
+    let Some(free_gb) = low_gb(df_avail(&media_dir(), "-B1")?) else {
         return Ok(());
     };
     let compose = |args: &[&str]| {
@@ -43,16 +40,7 @@ pub fn run(_args: Args) -> Result<()> {
     );
     let message = format!("Music downloads stopped: only {free_gb} GB free on the media disk.");
     println!("{message}");
-    let notify = home().join(".claude/harness/notify.py");
-    if notify
-        .metadata()
-        .is_ok_and(|m| m.permissions().mode() & 0o111 != 0)
-    {
-        ensure!(
-            Command::new(&notify).arg(&message).status()?.success(),
-            "notify failed"
-        );
-    }
+    crate::common::notify(&message)?;
     Ok(())
 }
 

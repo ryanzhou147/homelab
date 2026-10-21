@@ -97,19 +97,28 @@ pub fn run(_args: Args) -> anyhow::Result<()> {
     let salt = hex::encode(raw);
     let password = env_value(&secrets.join("navidrome.env"), "NAVIDROME_PASSWORD")?;
     let token = subsonic_token(&password, &salt);
-    let values = [
-        ("SONARR_KEY", arr_key(&data, "sonarr")?),
-        ("RADARR_KEY", arr_key(&data, "radarr")?),
-        (
-            "LIDARR_KEY",
-            env_value(&secrets.join("lidarr.env"), "LIDARR__AUTH__APIKEY")?,
-        ),
-        ("PROWLARR_KEY", arr_key(&data, "prowlarr")?),
+    let mut values = vec![
         ("SEERR_KEY", seerr_str("main")?),
         ("JELLYFIN_KEY", jellyfin_key(&seerr_str("jellyfin")?)?),
         ("NAVIDROME_SALT", salt),
         ("NAVIDROME_TOKEN", token),
     ];
+    // The fetchers are optional: a missing one leaves its card without numbers.
+    let optional = [
+        ("SONARR_KEY", arr_key(&data, "sonarr")),
+        ("RADARR_KEY", arr_key(&data, "radarr")),
+        (
+            "LIDARR_KEY",
+            env_value(&secrets.join("lidarr.env"), "LIDARR__AUTH__APIKEY"),
+        ),
+        ("PROWLARR_KEY", arr_key(&data, "prowlarr")),
+    ];
+    for (k, v) in optional {
+        match v {
+            Ok(v) => values.push((k, v)),
+            Err(err) => eprintln!("Skipped {k}: {err}"),
+        }
+    }
     let out = secrets.join("homepage.env");
     let tmp = out.with_extension("env.tmp");
     let _ = std::fs::remove_file(&tmp);

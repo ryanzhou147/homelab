@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use serde_json::Value;
 
-use crate::common::{data_dir, home, load_env};
+use crate::common::{data_dir, load_env, media_dir};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -49,10 +49,7 @@ pub fn run(args: Args) -> Result<()> {
     println!("Found: {url}");
 
     // Download to the artist directory with spotdl.
-    let artist_dir = home()
-        .join("homelab-media")
-        .join("music")
-        .join(artist_folder(artist)?);
+    let artist_dir = media_dir().join("music").join(artist_folder(artist)?);
     std::fs::create_dir_all(&artist_dir)?;
     let status = Command::new("spotdl")
         .args(spotdl_args(&url, &client_id, &client_secret))

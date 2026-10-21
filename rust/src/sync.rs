@@ -4,7 +4,7 @@
 //! It needs SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET of an app with the redirect URI
 //! http://127.0.0.1:18080/callback, and saves SPOTIFY_REFRESH_TOKEN in the same file.
 
-use crate::common::{data_dir, load_env};
+use crate::common::{data_dir, lab_user, load_env, navidrome_url};
 use crate::lidarr::Lidarr;
 use crate::navidrome::Navidrome;
 use crate::spotify::{
@@ -207,7 +207,7 @@ fn queue_missing(queue: &mut LidarrQueue, missing: &[Track]) {
 }
 
 /// The value in the env file, else in the environment, as `creds.get(k) or os.environ.get(k)`.
-fn setting(file: &HashMap<String, String>, key: &str) -> String {
+fn file_setting(file: &HashMap<String, String>, key: &str) -> String {
     file.get(key)
         .filter(|v| !v.is_empty())
         .cloned()
@@ -246,8 +246,8 @@ fn save_env_key(path: &Path, key: &str, value: &str) -> Result<()> {
 fn cmd_auth(creds_path: &Path) -> Result<()> {
     use std::os::unix::fs::DirBuilderExt;
     let creds = load_env(creds_path);
-    let client_id = setting(&creds, "SPOTIFY_CLIENT_ID");
-    let client_secret = setting(&creds, "SPOTIFY_CLIENT_SECRET");
+    let client_id = file_setting(&creds, "SPOTIFY_CLIENT_ID");
+    let client_secret = file_setting(&creds, "SPOTIFY_CLIENT_SECRET");
     if client_id.is_empty() || client_secret.is_empty() {
         die(&format!(
             "Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in {} first.",
@@ -297,9 +297,9 @@ pub fn run(args: Args) -> Result<()> {
         return cmd_auth(&spotify_creds);
     }
     let spotify_env = load_env(&spotify_creds);
-    let client_id = setting(&spotify_env, "SPOTIFY_CLIENT_ID");
-    let client_secret = setting(&spotify_env, "SPOTIFY_CLIENT_SECRET");
-    let refresh_token = setting(&spotify_env, "SPOTIFY_REFRESH_TOKEN");
+    let client_id = file_setting(&spotify_env, "SPOTIFY_CLIENT_ID");
+    let client_secret = file_setting(&spotify_env, "SPOTIFY_CLIENT_SECRET");
+    let refresh_token = file_setting(&spotify_env, "SPOTIFY_REFRESH_TOKEN");
     if client_id.is_empty() || client_secret.is_empty() || refresh_token.is_empty() {
         die(&format!(
             "Run --auth first, or set credentials in {}.",
@@ -307,7 +307,7 @@ pub fn run(args: Args) -> Result<()> {
         ));
     }
     let navidrome_creds = data.join("secrets/navidrome.env");
-    let password = setting(&load_env(&navidrome_creds), "NAVIDROME_PASSWORD");
+    let password = file_setting(&load_env(&navidrome_creds), "NAVIDROME_PASSWORD");
     if password.is_empty() {
         die(&format!(
             "Set NAVIDROME_PASSWORD in {} or in the environment.",
@@ -316,11 +316,10 @@ pub fn run(args: Args) -> Result<()> {
     }
     let client = SpotifyClient::new(&client_id, &client_secret, &refresh_token);
     let mut spotify = CachedSpotify::new(client, &data.join("spotify-cache.json"))?;
-    let url = std::env::var("NAVIDROME_URL").unwrap_or_default();
-    if url.is_empty() {
-        die("Set NAVIDROME_URL in the environment (e.g. https://your-host/music).");
-    }
-    let user = std::env::var("NAVIDROME_USER").unwrap_or_else(|_| "admin".into());
+    let Some(url) = navidrome_url() else {
+        die("Set HOST in .env, or NAVIDROME_URL (e.g. https://your-host/music).");
+    };
+    let user = crate::common::setting("NAVIDROME_USER").unwrap_or_else(lab_user);
     let mut navidrome = Navidrome::new(&url, &user, &password, "spotify-sync");
     navidrome.call("ping", &[])?;
 

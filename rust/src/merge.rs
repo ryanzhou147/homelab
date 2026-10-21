@@ -7,7 +7,7 @@
 //! tags, and Navidrome merges them at its next scan. Old tags and moves go to
 //! $DATA/merge-split-albums.jsonl. Without --apply it only prints the plan.
 
-use crate::common::{data_dir, home};
+use crate::common::{data_dir, media_dir};
 use crate::merge_tags::{Tags, album_tags, retag};
 use anyhow::{Context, Result};
 use regex::Regex;
@@ -48,9 +48,7 @@ struct Paths {
 impl Paths {
     fn from_env() -> Self {
         let data = data_dir();
-        let media = std::env::var_os("MEDIA")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| home().join("homelab-media"));
+        let media = media_dir();
         Paths {
             music: media.join("music"),
             duplicates: media.join("music-duplicates"),

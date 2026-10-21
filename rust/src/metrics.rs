@@ -5,7 +5,7 @@
 //! temperature. The API keys come from homepage.env (homelab homepage-secrets). The Grafana
 //! graphs on the home page are drawn from these numbers. Runs as homelab-lab-metrics.service.
 
-use crate::common::data_dir;
+use crate::common::{data_dir, lab_user, load_env, setting};
 use anyhow::{Context, anyhow};
 use serde_json::{Number, Value};
 use std::collections::HashMap;
@@ -55,8 +55,7 @@ struct Lab {
 
 impl Lab {
     fn from_env() -> anyhow::Result<Self> {
-        // The lab's name, from the repo's .env.
-        let host = std::env::var("HOST").context("HOST is not set")?;
+        let host = setting("HOST").context("Set HOST in .env")?;
         let health = vec![
             ("jellyfin", "http://127.0.0.1:8096/video/health".into()),
             ("seerr", "http://127.0.0.1:5055/api/v1/status".into()),
@@ -72,12 +71,15 @@ impl Lab {
             ("prowlarr", "http://127.0.0.1:9696/prowlarr/ping".into()),
             ("authelia", "http://127.0.0.1:9091/api/health".into()),
             ("homepage", "http://127.0.0.2:3010/api/healthcheck".into()),
-            ("ai_gateway", "http://127.0.0.1:8100/health".into()),
         ];
         Ok(Lab {
             host,
             data: data_dir(),
-            env: std::env::vars().collect(),
+            // The API keys from homepage-secrets; the environment wins.
+            env: load_env(&data_dir().join("secrets/homepage.env"))
+                .into_iter()
+                .chain(std::env::vars())
+                .collect(),
             health,
         })
     }
@@ -171,8 +173,9 @@ fn library(lab: &Lab, get: Get, _: &str, out: &mut Vec<Sample>) -> anyhow::Resul
         lab.var("HOMEPAGE_VAR_NAVIDROME_SALT")?,
     );
     let url = format!(
-        "https://{}/music/rest/getScanStatus?u=admin&t={token}&s={salt}&v=1.16.1&c=lab-metrics&f=json",
-        lab.host
+        "https://{}/music/rest/getScanStatus?u={}&t={token}&s={salt}&v=1.16.1&c=lab-metrics&f=json",
+        lab.host,
+        lab_user()
     );
     let scan = json(&get(&url, &[])?)?;
     let songs = num(&scan, &["subsonic-response", "scanStatus", "count"])?;

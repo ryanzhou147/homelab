@@ -9,14 +9,14 @@ use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::time::Duration;
 
 use anyhow::{Result, ensure};
 use regex::Regex;
 use serde_json::Value;
 
-use crate::common::{data_dir, home, load_env};
+use crate::common::{data_dir, lab_user, load_env, media_dir, navidrome_url};
 use crate::disk_guard::df_avail;
 
 const STOP_BELOW_GB: u64 = 5;
@@ -24,63 +24,6 @@ const DOWNLOAD_FROM_GB: u64 = 15;
 const MAX_SPOTDL_FAILS: u32 = 3;
 const LIDARR: &str = "http://localhost:8686/lidarr";
 const SCAN_POLLS: u32 = 30;
-
-/// Albums that Soularr struggles with, ordered by playlist impact.
-const PRIORITY_ALBUMS: &[(&str, &str)] = &[
-    ("Kendrick Lamar", "DAMN."),
-    ("Don Toliver", "HARDSTONE PSYCHO"),
-    ("Don Toliver", "Love Sick"),
-    ("Don Toliver", "Life of a DON"),
-    ("Kanye West", "The Life of Pablo"),
-    ("Kanye West", "My Beautiful Dark Twisted Fantasy"),
-    ("Kanye West", "808s & Heartbreak"),
-    ("Kanye West", "Late Registration"),
-    ("Baby Keem", "The Melodic Blue"),
-    ("A$AP Rocky", "AT.LONG.LAST.A$AP"),
-    ("J. Cole", "Born Sinner"),
-    ("J. Cole", "The Off-Season"),
-    ("SZA", "SOS"),
-    ("Playboi Carti", "MUSIC"),
-    ("Playboi Carti", "Whole Lotta Red"),
-    ("Frank Ocean", "Blonde"),
-    ("Mac Miller", "Swimming"),
-    ("Lil Uzi Vert", "Eternal Atake"),
-    ("Lil Uzi Vert", "Luv Is Rage 2"),
-    ("Vince Staples", "Dark Times"),
-    ("Kid Cudi", "INSANO"),
-    ("Kid Cudi", "Man on the Moon: The End of Day"),
-    ("Gunna", "One of Wun"),
-    ("French Montana", "Jungle Rules"),
-    ("Lil Wayne", "Tha Carter III"),
-    ("Lil Wayne", "Tha Carter IV"),
-    ("Lil Wayne", "Tha Carter V"),
-    ("JAY-Z", "Reasonable Doubt"),
-    ("JAY-Z", "Watch the Throne"),
-    ("Nas", "Illmatic"),
-    ("Nas", "Hip Hop Is Dead"),
-    ("Eminem", "The Eminem Show"),
-    ("Eminem", "Relapse"),
-    ("2Pac", "Me Against the World"),
-    ("2Pac", "Until the End of Time"),
-    ("The Notorious B.I.G.", "Life After Death"),
-    ("OutKast", "Aquemini"),
-    ("MF DOOM", "MM..FOOD"),
-    ("Earl Sweatshirt", "Doris"),
-    ("Pusha T", "My Name Is My Name"),
-    ("Childish Gambino", "Camp"),
-    ("50 Cent", "Get Rich or Die Tryin'"),
-    ("Drake", "Scorpion"),
-    ("Swedish House Mafia", "Paradise Again"),
-    ("EKKSTACY", "Negative"),
-    ("Joji", "Nectar"),
-    ("Joji", "BALLADS 1"),
-    ("Internet Money", "B4 the Storm"),
-    ("Molchat Doma", "Этажи"),
-    ("Hozier", "Hozier"),
-    ("Tame Impala", "Currents"),
-    ("Daft Punk", "Random Access Memories"),
-    ("Gorillaz", "Cracker Island"),
-];
 
 #[derive(clap::Args)]
 pub struct Args {}
@@ -105,15 +48,29 @@ trait Lab {
 
 /// The loop's own files under $DATA.
 struct Files {
+    /// Albums to download with spotdl first: "Artist - Album" lines of priority-albums.txt.
+    priority: Vec<(String, String)>,
     log: PathBuf,
     done: PathBuf,
     missing: PathBuf,
     tried: PathBuf,
 }
 
+/// "Artist - Album" lines; the first " - " splits, and # starts a comment line.
+fn priority_albums(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.starts_with('#'))
+        .filter_map(|l| l.split_once(" - "))
+        .map(|(a, b)| (a.trim().to_string(), b.trim().to_string()))
+        .collect()
+}
+
 impl Files {
     fn new(data: &Path) -> Self {
+        let list = std::fs::read_to_string(data.join("priority-albums.txt")).unwrap_or_default();
         Files {
+            priority: priority_albums(&list),
             log: data.join("music-fill.log"),
             done: data.join("spotdl-done.txt"),
             missing: data.join("missing.spotdl"),
@@ -147,12 +104,8 @@ pub fn run(_args: Args) -> Result<()> {
     let data = data_dir();
     let mut lab = LiveLab::new(&data)?;
     let count = fill(&mut lab, &Files::new(&data))?;
-    let notify = home().join(".claude/harness/notify.py");
     let message = format!("Music fill loop done: Navidrome has {count} tracks, playlists updated");
-    let _ = Command::new(notify)
-        .arg(message)
-        .stderr(Stdio::null())
-        .status();
+    let _ = crate::common::notify(&message); // the loop's work is done either way
     Ok(())
 }
 
@@ -172,7 +125,7 @@ fn fill(lab: &mut impl Lab, files: &Files) -> Result<String> {
         }
         if free_gb >= DOWNLOAD_FROM_GB {
             // Priority downloads via spotdl.
-            for (artist, album) in PRIORITY_ALBUMS {
+            for (artist, album) in &files.priority {
                 download_album(lab, files, artist, album)?;
             }
             // Also pull remaining wanted albums from Lidarr.
@@ -358,11 +311,11 @@ impl LiveLab {
         );
         Ok(LiveLab {
             data: data.to_path_buf(),
-            music: home().join("homelab-media").join("music"),
+            music: media_dir().join("music"),
             missing: data.join("missing.spotdl"),
             log: data.join("music-fill.log"),
-            navidrome_url: var("NAVIDROME_URL", "https://your-pc.your-tailnet.ts.net/music"),
-            navidrome_user: var("NAVIDROME_USER", "admin"),
+            navidrome_url: var("NAVIDROME_URL", &navidrome_url().unwrap_or_default()),
+            navidrome_user: var("NAVIDROME_USER", &lab_user()),
             navidrome_password: var("NAVIDROME_PASSWORD", ""),
             lidarr_key,
             exe: std::env::current_exe()?,
@@ -612,6 +565,9 @@ mod tests {
 
     fn setup() -> (tempfile::TempDir, Files) {
         let dir = tempfile::tempdir().unwrap();
+        let list = "# priority\nKendrick Lamar - DAMN.\nDon Toliver - HARDSTONE PSYCHO\nSZA - SOS\n\
+                    Gorillaz - Cracker Island\n";
+        std::fs::write(dir.path().join("priority-albums.txt"), list).unwrap();
         let files = Files::new(dir.path());
         (dir, files)
     }
@@ -628,7 +584,7 @@ mod tests {
         let count = fill(&mut lab, &files).unwrap();
         assert_eq!(count, "1234");
 
-        let albums = PRIORITY_ALBUMS.len() - 1; // DAMN. is done
+        let albums = files.priority.len() - 1; // DAMN. is done
         let round1 = &lab.steps[..albums + 10];
         assert_eq!(round1[0], "df");
         assert_eq!(round1[1], "album HARDSTONE PSYCHO");
@@ -698,7 +654,8 @@ mod tests {
         let mut lab = FakeLab::new(dir.path(), [rounds, vec![(100, TWO, false); 3]].concat());
         std::fs::write(
             &files.done,
-            PRIORITY_ALBUMS
+            files
+                .priority
                 .iter()
                 .map(|(a, b)| format!("{a}|||{b}\n"))
                 .collect::<String>(),
@@ -726,7 +683,8 @@ mod tests {
         );
         std::fs::write(
             &files.done,
-            PRIORITY_ALBUMS
+            files
+                .priority
                 .iter()
                 .map(|(a, b)| format!("{a}|||{b}\n"))
                 .collect::<String>(),

@@ -2,11 +2,34 @@
 
 use std::path::PathBuf;
 
+/// A lab setting from the environment, else from the repo's .env.
+pub fn setting(key: &str) -> Option<String> {
+    let non_empty = |v: String| (!v.is_empty()).then_some(v);
+    std::env::var(key).ok().and_then(non_empty).or_else(|| {
+        load_env(&repo_dir().join(".env"))
+            .remove(key)
+            .and_then(non_empty)
+    })
+}
+
 /// ${DATA}, default ~/homelab-data: the encrypted vault with app data and secrets.
 pub fn data_dir() -> PathBuf {
-    std::env::var_os("DATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| home().join("homelab-data"))
+    setting("DATA").map_or_else(|| home().join("homelab-data"), PathBuf::from)
+}
+
+/// ${MEDIA}, default ~/homelab-media: music, video and downloads.
+pub fn media_dir() -> PathBuf {
+    setting("MEDIA").map_or_else(|| home().join("homelab-media"), PathBuf::from)
+}
+
+/// The admin's account name in the lab login, Jellyfin and Navidrome (LAB_USER).
+pub fn lab_user() -> String {
+    setting("LAB_USER").unwrap_or_else(|| "admin".into())
+}
+
+/// NAVIDROME_URL, else Navidrome's address under the lab's name.
+pub fn navidrome_url() -> Option<String> {
+    setting("NAVIDROME_URL").or_else(|| setting("HOST").map(|h| format!("https://{h}/music")))
 }
 
 pub fn home() -> PathBuf {
@@ -22,6 +45,20 @@ pub fn load_env(path: &std::path::Path) -> std::collections::HashMap<String, Str
         .filter_map(|l| l.split_once('='))
         .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
         .collect()
+}
+
+/// Runs NOTIFY_CMD with the message as its one argument, if .env sets it (e.g. notify-send).
+pub fn notify(message: &str) -> std::io::Result<()> {
+    let Some(cmd) = setting("NOTIFY_CMD") else {
+        return Ok(());
+    };
+    let status = std::process::Command::new(cmd).arg(message).status()?;
+    if !status.success() {
+        return Err(std::io::Error::other(format!(
+            "NOTIFY_CMD exited with {status}"
+        )));
+    }
+    Ok(())
 }
 
 /// The repo checkout this binary was built from: compose.yml and .env live there.

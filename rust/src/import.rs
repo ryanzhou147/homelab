@@ -4,6 +4,7 @@
 //! missing-albums.csv, a shopping list by album with a Bandcamp search link. Asks for the
 //! password unless NAVIDROME_PASSWORD is set; nothing is stored.
 
+use crate::common::{lab_user, navidrome_url, setting};
 use crate::navidrome::Navidrome;
 use crate::spotify::Track;
 use crate::text::{die, most_common, quote_plus};
@@ -12,7 +13,6 @@ use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
-const DEFAULT_SERVER: &str = "https://your-pc.your-tailnet.ts.net/music";
 const SHOPPING_LIST: &str = "missing-albums.csv";
 
 #[derive(clap::Args)]
@@ -21,11 +21,11 @@ pub struct Args {
     folder: Option<PathBuf>,
 }
 
-/// NAVIDROME_URL and NAVIDROME_USER, with the import's defaults.
-pub fn server_and_user() -> (String, String) {
-    let server = std::env::var("NAVIDROME_URL").unwrap_or_else(|_| DEFAULT_SERVER.into());
-    let user = std::env::var("NAVIDROME_USER").unwrap_or_else(|_| "admin".into());
-    (server, user)
+/// NAVIDROME_URL and NAVIDROME_USER, with the lab's defaults.
+pub fn server_and_user() -> Result<(String, String)> {
+    let server = navidrome_url().context("Set HOST in .env, or NAVIDROME_URL")?;
+    let user = setting("NAVIDROME_USER").unwrap_or_else(lab_user);
+    Ok((server, user))
 }
 
 /// Exportify separates artists with ';' (older exports used ', ').
@@ -142,7 +142,7 @@ pub fn run(args: Args) -> Result<()> {
     if files.is_empty() {
         die(&format!("No Exportify CSV files in {}.", folder.display()));
     }
-    let (server, user) = server_and_user();
+    let (server, user) = server_and_user()?;
     let password = match std::env::var("NAVIDROME_PASSWORD") {
         Ok(p) if !p.is_empty() => p,
         _ => getpass(&format!("Password for {user}: "))?,
@@ -241,7 +241,7 @@ mod tests {
     #[test]
     #[ignore]
     fn live_match_ids() {
-        let (server, user) = server_and_user();
+        let (server, user) = server_and_user().unwrap();
         let password = std::env::var("NAVIDROME_PASSWORD").unwrap();
         let navidrome = Navidrome::new(&server, &user, &password, "spotify-import");
         let folder = PathBuf::from(std::env::var("EXPORT_DIR").unwrap());

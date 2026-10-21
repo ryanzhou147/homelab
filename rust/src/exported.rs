@@ -79,7 +79,7 @@ pub fn run(args: Args) -> Result<()> {
         .get("NAVIDROME_PASSWORD")
         .cloned()
         .unwrap_or_default();
-    let (server, user) = server_and_user();
+    let (server, user) = server_and_user()?;
     let navidrome = Navidrome::new(&server, &user, &password, "spotify-import");
     navidrome.call("ping", &[])?;
     let mut missing = Vec::new();
