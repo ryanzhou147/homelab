@@ -47,6 +47,14 @@
                 service_group: Download
                 service_name: Radarr
                 index: 0  # its first widget; the default is this calendar's own position
+    - Bazarr:
+        icon: bazarr.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/bazarr/
+        siteMonitor: http://127.0.0.1:6767/bazarr/api/system/ping
+        widget:
+          type: bazarr
+          url: http://127.0.0.1:6767/bazarr
+          key: "{{HOMEPAGE_VAR_BAZARR_KEY}}"
 
 - Listen:
     - Navidrome:

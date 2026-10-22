@@ -1,8 +1,8 @@
 //! Writes ${DATA}/secrets/homepage.env: the API keys that the home page widgets use.
 //!
-//! The keys come from each app's own settings, and Lidarr's from its env file. Jellyfin gets its
-//! own "Homepage" key, made with the key that Seerr already has. Navidrome gets a Subsonic token
-//! and salt made from its password.
+//! The keys come from each app's own settings, and Lidarr's and Bazarr's from their secret files.
+//! Jellyfin gets its own "Homepage" key, made with the key that Seerr already has. Navidrome gets
+//! a Subsonic token and salt made from its password.
 //!
 //!     homelab homepage-secrets     (then: docker compose up -d homepage)
 //!
@@ -74,6 +74,12 @@ fn env_value(path: &Path, name: &str) -> anyhow::Result<String> {
     }
 }
 
+/// A one-line secret file, such as the Bazarr key from setup-bazarr.sh.
+fn file_value(path: &Path) -> anyhow::Result<String> {
+    let text = std::fs::read_to_string(path).with_context(|| path.display().to_string())?;
+    Ok(text.trim().to_string())
+}
+
 /// The Subsonic token: md5 of the password and the salt, in hex.
 fn subsonic_token(password: &str, salt: &str) -> String {
     hex::encode(md5::Md5::digest(format!("{password}{salt}")))
@@ -112,6 +118,7 @@ pub fn run(_args: Args) -> anyhow::Result<()> {
             env_value(&secrets.join("lidarr.env"), "LIDARR__AUTH__APIKEY"),
         ),
         ("PROWLARR_KEY", arr_key(&data, "prowlarr")),
+        ("BAZARR_KEY", file_value(&secrets.join("bazarr_apikey"))),
     ];
     for (k, v) in optional {
         match v {
