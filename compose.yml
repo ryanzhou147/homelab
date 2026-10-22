@@ -125,6 +125,7 @@ services:
       - "127.0.0.1:9696:19696"
       - "127.0.0.1:7878:17878"
       - "127.0.0.1:5055:15055"
+      - "127.0.0.1:6767:16767"
       # 8080 on the PC is taken by another program.
       - "127.0.0.1:8081:18080"
     environment:
@@ -278,6 +279,21 @@ services:
     volumes:
       - ${DATA}/radarr:/config
       - ${MEDIA}:/data
+    depends_on: {fetch-gate: {condition: service_started, restart: true}}
+
+  # Subtitles: Bazarr finds a missing English subtitle for each show and movie that Sonarr and
+  # Radarr know, and saves it next to the video. Run scripts/setup-bazarr.sh once.
+  bazarr:
+    <<: *local
+    image: lscr.io/linuxserver/bazarr:v1.6.2-ls369
+    network_mode: service:fetch-gate
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - ${DATA}/bazarr:/config
+      # The same path as in Sonarr and Radarr, so no path mapping is needed.
+      - ${MEDIA}/video:/data/video
     depends_on: {fetch-gate: {condition: service_started, restart: true}}
 
   # Requests from the phone: users sign in with their Jellyfin account and pick a show or movie,
