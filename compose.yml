@@ -286,6 +286,9 @@ services:
   bazarr:
     <<: *local
     image: lscr.io/linuxserver/bazarr:v1.6.2-ls369
+    # Only the setup script starts it: with no config.yaml yet, Bazarr listens on every address of
+    # the gate's network, past the gate.
+    profiles: [subtitles]
     network_mode: service:fetch-gate
     environment:
       PUID: "1000"

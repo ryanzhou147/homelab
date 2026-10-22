@@ -21,8 +21,12 @@ RADARR_KEY=$(arr_key radarr)
 # gate's 127.0.0.1 only, and Caddy lets in only admins.
 CONFIG="$DATA/bazarr/config/config.yaml"
 # A config that Bazarr wrote itself listens on every address of the gate's network, past the gate.
-if [ -f "$CONFIG" ] && ! grep -q '^  ip: 127.0.0.1$' "$CONFIG"; then
-	echo "$CONFIG listens on more than 127.0.0.1. Stop Bazarr, delete the file, and run this again."
+listens_local() {
+	python3 -c 'import sys, yaml; sys.exit(yaml.safe_load(open(sys.argv[1]))["general"]["ip"] != "127.0.0.1")' "$CONFIG"
+}
+if [ -f "$CONFIG" ] && ! listens_local; then
+	docker compose stop bazarr
+	echo "$CONFIG listens on more than 127.0.0.1, so Bazarr is stopped. Delete the file and run this again."
 	exit 1
 fi
 if [ ! -f "$CONFIG" ]; then
