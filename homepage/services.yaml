@@ -26,6 +26,7 @@
               label: label
     - Requests:
         icon: jellyseerr.svg
+        description: Ask for a show or movie
         href: https://{{HOMEPAGE_VAR_HOST}}:5055/
         siteMonitor: http://127.0.0.1:5055/api/v1/status
         widgets:
@@ -79,6 +80,7 @@
     - Lidarr:
         icon: lidarr.svg
         href: https://{{HOMEPAGE_VAR_HOST}}/lidarr/
+        description: Add an album
         siteMonitor: http://127.0.0.1:8686/lidarr/ping
         widgets:
           # Not the lidarr widget: it loads the full 5 MB artist list on each refresh.
