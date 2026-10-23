@@ -88,6 +88,8 @@
 	handle /grafana* {
 		import admin 127.0.0.1:3000
 	}
+	# An address to remember for Seerr, which has its own port.
+	redir /requests* https://{$HOST}:5055/ 302
 	# qBittorrent has no URL base setting, so Caddy removes the /qbit prefix.
 	redir /qbit /qbit/ 308
 	handle_path /qbit/* {
