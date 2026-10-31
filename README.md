@@ -24,6 +24,13 @@ A media server on one PC, reachable only over Tailscale.
 
 </div>
 
+- One login for every app, reachable only over Tailscale
+- Request a show or movie from your phone: it downloads, files itself and gets subtitles
+- Spotify playlists and Liked Songs sync to Navidrome, and missing songs download
+- A home page with live downloads, new episodes and graphs
+- One Rust binary for the sync, downloads, disk guard and metrics
+- Optional encryption for all app data
+
 ## Install
 
 Needs Linux with Docker Compose 2.30+ and user id 1000, a `/dev/dri/renderD*` GPU, Tailscale with HTTPS certificates, and Rust.
