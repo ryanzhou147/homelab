@@ -239,27 +239,3 @@
           url: http://127.0.0.1:9696/prowlarr
           key: "{{HOMEPAGE_VAR_PROWLARR_KEY}}"
 
-# Panels of Grafana's "Home lab media" dashboard (see Graphs in README.md).
-- Graphs:
-    - Last 6 hours:
-        widgets:
-          - type: iframe
-            name: download-speed
-            src: /grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=1&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
-            classes: h-36
-            loadingStrategy: lazy
-          - type: iframe
-            name: services
-            src: /grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=2&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
-            classes: h-36
-            loadingStrategy: lazy
-          - type: iframe
-            name: music-downloads
-            src: /grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=3&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
-            classes: h-36
-            loadingStrategy: lazy
-          - type: iframe
-            name: cpu
-            src: /grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=5&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
-            classes: h-36
-            loadingStrategy: lazy

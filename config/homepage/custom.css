@@ -1,0 +1,30 @@
+/* The top bar's graphs from custom.js, in the bar's own text colour. */
+.lab-graphs {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  font-size: 0.75rem;
+}
+.lab-graph {
+  width: 5.5rem;
+}
+.lab-graph > div {
+  display: flex;
+  justify-content: space-between;
+  opacity: 0.85;
+}
+.lab-graph svg {
+  display: block;
+  width: 100%;
+  height: 1.5rem;
+}
+.lab-graph .line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.lab-graph .area {
+  fill: currentColor;
+  opacity: 0.15;
+}

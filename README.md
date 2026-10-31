@@ -63,7 +63,7 @@ cp .env.example .env    # fill it in
 | Subtitles | After the video fetchers: `./scripts/setup-bazarr.sh`, then step 6 again |
 | Jellyfin with the lab login | `sudo ufw allow from 172.30.77.0/24 to TS_IP port 443 proto tcp`, then `./scripts/configure-jellyfin-sso.sh` |
 | Encrypted data | `sudo ./scripts/setup-master-password.sh`; after each boot, `sudo ./scripts/vault-unlock.sh` |
-| Graphs | Prometheus that scrapes `127.0.0.1:9102`, and Grafana on `127.0.0.1:3000` with the dashboard `homelab-media` at `/grafana`; without them, delete the Graphs group in `config/homepage/services.yaml` |
+| Top bar graphs | Prometheus that scrapes `127.0.0.1:9102`, and Grafana on `127.0.0.1:3000` at `/grafana` with anonymous viewers and a Prometheus data source with the uid `prometheus`; without them, delete `config/homepage/custom.js` |
 | Download alerts | `NOTIFY_CMD` in `.env`, e.g. `notify-send` |
 | First albums | `DATA/priority-albums.txt`, one `Artist - Album` per line |
 
