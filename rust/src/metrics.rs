@@ -284,9 +284,36 @@ fn render(samples: &[Sample]) -> String {
         .collect()
 }
 
+/// The job tracker runs every 4 hours, so a status file older than two runs means it stopped.
+const JOB_TRACKER_MAX_AGE: Duration = Duration::from_secs(9 * 3600);
+
+/// The job tracker's health for the home page's status dot: 200 while its last run is recent and
+/// reported "ok", else 503. The body names the reason.
+fn job_tracker_health(data: &Path) -> (u16, String) {
+    let path = data.join("status").join("job-tracker.json");
+    let age = std::fs::metadata(&path)
+        .and_then(|m| m.modified())
+        .ok()
+        .map(|t| t.elapsed().unwrap_or_default()); // a clock set back counts as just written
+    let status = std::fs::read(&path)
+        .ok()
+        .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+        .and_then(|v| v["status"].as_str().map(String::from));
+    match (age, status) {
+        (Some(age), Some(_)) if age > JOB_TRACKER_MAX_AGE => (503, "stale".into()),
+        (Some(_), Some(status)) if status == "ok" => (200, status),
+        (Some(_), Some(status)) => (503, status),
+        _ => (503, "unreadable status file".into()),
+    }
+}
+
 fn handle(req: tiny_http::Request, lab: &Lab, get: Get) -> std::io::Result<()> {
     if *req.method() != tiny_http::Method::Get {
         return req.respond(tiny_http::Response::empty(501));
+    }
+    if req.url() == "/health/job-tracker" {
+        let (code, reason) = job_tracker_health(&lab.data);
+        return req.respond(tiny_http::Response::from_string(reason).with_status_code(code));
     }
     if req.url() != "/metrics" {
         return req.respond(tiny_http::Response::empty(404));
@@ -323,6 +350,22 @@ pub fn run(args: Args) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn job_tracker_health_needs_a_recent_ok_run() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(job_tracker_health(dir.path()).0, 503);
+        std::fs::create_dir(dir.path().join("status")).unwrap();
+        let file = dir.path().join("status").join("job-tracker.json");
+        std::fs::write(&file, r#"{"status":"ok"}"#).unwrap();
+        assert_eq!(job_tracker_health(dir.path()), (200, "ok".into()));
+        std::fs::write(&file, r#"{"status":"engine_down"}"#).unwrap();
+        assert_eq!(job_tracker_health(dir.path()), (503, "engine_down".into()));
+        std::fs::write(&file, r#"{"status":"ok"}"#).unwrap();
+        let old = std::time::SystemTime::now() - Duration::from_secs(10 * 3600);
+        std::fs::File::options().write(true).open(&file).unwrap().set_modified(old).unwrap();
+        assert_eq!(job_tracker_health(dir.path()), (503, "stale".into()));
+    }
 
     #[test]
     fn render_writes_prometheus_text() {
