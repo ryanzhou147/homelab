@@ -16,11 +16,11 @@ A media server on one PC, reachable only over Tailscale.
 <a href="https://github.com/slskd/slskd"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/slskd.svg" height="40" alt="slskd" title="slskd"></a>
 <a href="https://gethomepage.dev"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/png/homepage.png" height="40" alt="Homepage" title="Homepage"></a>
 
-<a href="https://tailscale.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/tailscale.svg" height="24" alt="Tailscale" title="Tailscale"></a>
+<a href="https://tailscale.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/tailscale-light.svg"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/tailscale.svg" height="24" alt="Tailscale" title="Tailscale"></picture></a>
 <a href="https://caddyserver.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/caddy.svg" height="24" alt="Caddy" title="Caddy"></a>
 <a href="https://www.authelia.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/authelia.svg" height="24" alt="Authelia" title="Authelia"></a>
 <a href="https://www.docker.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/docker.svg" height="24" alt="Docker" title="Docker"></a>
-<a href="https://www.rust-lang.org"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/rust.svg" height="24" alt="Rust" title="Rust"></a>
+<a href="https://www.rust-lang.org"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/rust-dark.svg"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/rust.svg" height="24" alt="Rust" title="Rust"></picture></a>
 
 </div>
 
