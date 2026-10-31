@@ -59,6 +59,8 @@
     - Job Tracker:
         icon: mdi-briefcase-search
         description: Cron, every 4h
+        # Green while the last run was "ok" and less than 9 hours ago ('homelab lab-metrics').
+        siteMonitor: http://127.0.0.1:9102/health/job-tracker
         widget:
           type: customapi
           url: http://127.0.0.2:3010/status/job-tracker.json
@@ -67,19 +69,9 @@
           refreshInterval: 60000
           display: list
           mappings:
-            - field: status
-              label: Status
-              remap:
-                - value: ok
-                  to: Healthy
-                - value: engine_down
-                  to: Engine down
-                - value: token_expired
-                  to: Token expired
-                - value: error
-                  to: Error
             - field: last_run
               label: Last run
+              format: relativeDate
             - field: last_added
               label: Added
             - field: last_rejected
