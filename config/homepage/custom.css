@@ -28,3 +28,20 @@
   fill: currentColor;
   opacity: 0.15;
 }
+
+/* Each card's outline shows its health instead of the status dot: green when its check answers,
+   red when it fails. Cards without a check keep no outline. */
+/* Hidden but still hoverable, so its tooltip (HTTP status and latency) stays. */
+.site-monitor-status {
+  opacity: 0;
+}
+.service-card {
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+}
+.service-card:has(.site-monitor-status .bg-emerald-500) {
+  outline-color: rgb(16 185 129 / 0.55);
+}
+.service-card:has(.site-monitor-status .bg-rose-500) {
+  outline-color: rgb(244 63 94 / 0.9);
+}
