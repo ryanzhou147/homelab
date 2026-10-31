@@ -35,7 +35,7 @@
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
-	# lab.example.com-style names share a site with the public website on the parent domain, so the
+	# A name like lab.example.com shares a site with the public website on example.com, so the
 	# browser sends the login cookie with requests from its pages. Only the lab's own pages and plain
 	# link clicks may come in. Jellyfin and the Subsonic API are left out: they log in with their own
 	# tokens, not the cookie, and TV, Cast and desktop players call them from other sites.
