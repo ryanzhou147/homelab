@@ -56,6 +56,34 @@
           type: bazarr
           url: http://127.0.0.1:6767/bazarr
           key: "{{HOMEPAGE_VAR_BAZARR_KEY}}"
+    - Job Tracker:
+        icon: mdi-briefcase-search
+        description: Cron, every 4h
+        widget:
+          type: customapi
+          url: http://127.0.0.2:3010/status/job-tracker.json
+          headers:
+            Host: "{{HOMEPAGE_VAR_HOST}}"
+          refreshInterval: 60000
+          display: list
+          mappings:
+            - field: status
+              label: Status
+              remap:
+                - value: ok
+                  to: Healthy
+                - value: engine_down
+                  to: Engine down
+                - value: token_expired
+                  to: Token expired
+                - value: error
+                  to: Error
+            - field: last_run
+              label: Last run
+            - field: last_added
+              label: Added
+            - field: last_rejected
+              label: Rejected
 
 - Listen:
     - Navidrome:
