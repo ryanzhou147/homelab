@@ -1,8 +1,11 @@
-# One entrance on the PC's Tailscale address. Certificates come from the local tailscaled
-# (enable HTTPS Certificates in the Tailscale admin).
+# One entrance on the PC's Tailscale address. HOST gets its certificate from the local tailscaled
+# (HOST_TLS=tailscale; enable HTTPS Certificates in the Tailscale admin) or from Let's Encrypt
+# through deSEC DNS (HOST_TLS=desec). OLD_HOST and REQUESTS_HOST are optional extra names.
 {
 	admin off
 	auto_https disable_redirects
+	# The cross-site checks in site_headers must run before any route sends a request on.
+	order respond before handle
 }
 
 (login) {
@@ -32,6 +35,31 @@
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
+	# lab.example.com-style names share a site with the public website on the parent domain, so the
+	# browser sends the login cookie with requests from its pages. Only the lab's own pages and plain
+	# link clicks may come in. Jellyfin and the Subsonic API are left out: they log in with their own
+	# tokens, not the cookie, and TV, Cast and desktop players call them from other sites.
+	@foreign_page {
+		not path /video* /music/rest/*
+		header_regexp Sec-Fetch-Site ^(cross|same)-site$
+		not {
+			method GET HEAD
+			header Sec-Fetch-Mode navigate
+		}
+	}
+	respond @foreign_page "Forbidden" 403
+	@foreign_origin {
+		not path /video* /music/rest/*
+		header Origin *
+		not {
+			header Origin https://{$HOST}
+			header Origin https://{$HOST}:5055
+			header Origin https://{$OLD_HOST:old.invalid}
+			header Origin https://{$OLD_HOST:old.invalid}:5055
+			header Origin https://{$REQUESTS_HOST:requests.invalid}
+		}
+	}
+	respond @foreign_origin "Forbidden" 403
 	# Identity headers come only from Authelia (the login snippet), never from the visitor.
 	request_header -Remote-User
 	request_header -Remote-Groups
@@ -39,11 +67,25 @@
 	request_header -Remote-Email
 }
 
-{$HOST}:443 {
-	bind {$TS_IP}
+(tls_tailscale) {
 	tls {
 		get_certificate tailscale
 	}
+}
+
+(tls_desec) {
+	tls {
+		dns desec {
+			token {env.DESEC_TOKEN}
+		}
+		# deSEC needs about a minute to publish a record on all its servers; Let's Encrypt
+		# looked too early and got NXDOMAIN.
+		propagation_delay 2m
+		propagation_timeout -1
+	}
+}
+
+(lab) {
 	encode zstd gzip
 	import site_headers
 
@@ -88,8 +130,8 @@
 	handle /grafana* {
 		import admin 127.0.0.1:3000
 	}
-	# An address to remember for Seerr, which has its own port.
-	redir /requests* https://{$HOST}:5055/ 302
+	# An address to remember for Seerr, which has its own name or port.
+	redir /requests* {$REQUESTS_URL} 302
 	# qBittorrent has no URL base setting, so Caddy removes the /qbit prefix.
 	redir /qbit /qbit/ 308
 	handle_path /qbit/* {
@@ -101,15 +143,42 @@
 	}
 }
 
-# Seerr (show and movie requests) has no URL base setting, so it gets its own port. Users sign in
-# twice: Authelia here, then Seerr with their Jellyfin account.
-{$HOST}:5055 {
-	bind {$TS_IP}
-	tls {
-		get_certificate tailscale
-	}
+# Seerr (show and movie requests) has no URL base setting, so it gets its own name or port. Users
+# sign in twice: Authelia here, then Seerr with their Jellyfin account.
+(seerr) {
 	import site_headers
 	# Admins only while Authelia has no other users; switch to login to let others request.
 	import admin 127.0.0.1:5055
 }
 
+{$HOST}:443 {
+	bind {$TS_IP}
+	import tls_{$HOST_TLS:tailscale}
+	import lab
+}
+
+{$HOST}:5055 {
+	bind {$TS_IP}
+	import tls_{$HOST_TLS:tailscale}
+	import seerr
+}
+
+# The .invalid names never match a request. They stand in when a name is unset; compose.yml also
+# sets them for empty names, which Caddy's defaults do not cover.
+{$OLD_HOST:old.invalid}:443 {
+	bind {$TS_IP}
+	import tls_tailscale
+	import lab
+}
+
+{$OLD_HOST:old.invalid}:5055 {
+	bind {$TS_IP}
+	import tls_tailscale
+	import seerr
+}
+
+{$REQUESTS_HOST:requests.invalid}:443 {
+	bind {$TS_IP}
+	import tls_{$HOST_TLS:tailscale}
+	import seerr
+}

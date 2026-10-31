@@ -16,11 +16,14 @@
 	# the fetch network such as Jellyfin.
 	@not_from_pc not remote_ip 172.30.78.1
 	respond @not_from_pc "Forbidden" 403
-	@foreign_host not host {$HOST} 127.0.0.1 localhost
+	@foreign_host not host {$HOST} {$OLD_HOST} {$REQUESTS_HOST} 127.0.0.1 localhost
 	respond @foreign_host "Forbidden" 403
 	@foreign_origin {
 		header Origin *
-		not header Origin https://{$HOST}
+		not {
+			header Origin https://{$HOST}
+			header Origin https://{$OLD_HOST}
+		}
 	}
 	respond @foreign_origin "Forbidden" 403
 	@other_site header_regexp Sec-Fetch-Site ^(cross|same)-site$
@@ -64,11 +67,15 @@ http://:15055 {
 	# the fetch network such as Jellyfin.
 	@not_from_pc not remote_ip 172.30.78.1
 	respond @not_from_pc "Forbidden" 403
-	@foreign_host not host {$HOST} 127.0.0.1 localhost
+	@foreign_host not host {$HOST} {$OLD_HOST} {$REQUESTS_HOST} 127.0.0.1 localhost
 	respond @foreign_host "Forbidden" 403
 	@foreign_origin {
 		header Origin *
-		not header Origin https://{$HOST}:5055
+		not {
+			header Origin https://{$HOST}:5055
+			header Origin https://{$OLD_HOST}:5055
+			header Origin https://{$REQUESTS_HOST}
+		}
 	}
 	respond @foreign_origin "Forbidden" 403
 	@other_site {

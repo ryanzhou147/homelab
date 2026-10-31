@@ -10,11 +10,19 @@ x-local: &local
 services:
   caddy:
     <<: *local
-    image: caddy:2.11.7
+    build: config/caddy
+    image: homelab-caddy:2.11.7
     network_mode: host
     environment:
       HOST: ${HOST}
+      HOST_TLS: ${HOST_TLS:-tailscale}
+      # Caddy's {$VAR:default} works only for unset variables, so empty names get placeholders here.
+      OLD_HOST: ${OLD_HOST:-old.invalid}
+      REQUESTS_HOST: ${REQUESTS_HOST:-requests.invalid}
+      REQUESTS_URL: https://${REQUESTS_HOST:-${HOST}:5055}/
       TS_IP: ${TS_IP}
+    # DESEC_TOKEN, only for HOST_TLS=desec.
+    env_file: [{path: "${DATA}/secrets/desec.env", required: false}]
     volumes:
       - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA}/caddy:/data
@@ -35,7 +43,7 @@ services:
       PORT: "3010"
       PUID: "1000"
       PGID: "1000"
-      HOMEPAGE_ALLOWED_HOSTS: ${HOST}
+      HOMEPAGE_ALLOWED_HOSTS: ${HOST},${OLD_HOST:-${HOST}}
       HOMEPAGE_VAR_HOST: ${HOST}
       HOMEPAGE_VAR_LAB_USER: ${LAB_USER}
       LOG_TARGETS: stdout
@@ -57,6 +65,8 @@ services:
     ports: ["127.0.0.1:9091:9091"]
     environment:
       X_HOST: ${HOST}
+      X_OLD_HOST: ${OLD_HOST:-}
+      X_REQUESTS_HOST: ${REQUESTS_HOST:-}
       AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE: /secrets/authelia_jwt
       AUTHELIA_SESSION_SECRET_FILE: /secrets/authelia_session
       AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: /secrets/authelia_storage
@@ -98,6 +108,7 @@ services:
     # The SSO plugin calls Authelia at https://${HOST}/auth; resolve that to the Tailscale IP.
     extra_hosts:
       - "${HOST}:${TS_IP}"
+      - "${OLD_HOST:-old.invalid}:${TS_IP}"
     # Transcodes on the GPU that RENDER_DEVICE names (ls /dev/dri).
     devices:
       - ${RENDER_DEVICE}:${RENDER_DEVICE}
@@ -130,6 +141,8 @@ services:
       - "127.0.0.1:8081:18080"
     environment:
       HOST: ${HOST}
+      OLD_HOST: ${OLD_HOST:-old.invalid}
+      REQUESTS_HOST: ${REQUESTS_HOST:-requests.invalid}
     volumes:
       - ./config/fetch-gate/Caddyfile:/etc/caddy/Caddyfile:ro
     networks: [fetch]
