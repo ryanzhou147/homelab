@@ -19,8 +19,8 @@ restart_if_changed() {
 		docker compose restart "$service"
 	fi
 }
-restart_if_changed authelia authelia/configuration.yml
-restart_if_changed caddy Caddyfile
+restart_if_changed authelia config/authelia/configuration.yml
+restart_if_changed caddy config/caddy/Caddyfile
 
 mkdir -p ~/.config/systemd/user
 ln -sf "$PWD"/systemd/homelab-music-guard.{service,timer} ~/.config/systemd/user/

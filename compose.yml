@@ -16,7 +16,7 @@ services:
       HOST: ${HOST}
       TS_IP: ${TS_IP}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA}/caddy:/data
       - ${DATA}/sockets:/sockets
       - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
@@ -41,8 +41,8 @@ services:
       LOG_TARGETS: stdout
     env_file: ${DATA}/secrets/homepage.env
     volumes:
-      - ./homepage:/app/config:ro
-      - ./homepage/images:/app/public/images:ro
+      - ./config/homepage:/app/config:ro
+      - ./config/homepage/images:/app/public/images:ro
       # downloads.json from 'homelab download-status' (the homelab-download-status timer).
       - ${DATA}/status:/app/public/status:ro
     healthcheck:
@@ -63,7 +63,7 @@ services:
       AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE: /secrets/authelia_oidc_hmac
       X_AUTHELIA_CONFIG_FILTERS: template
     volumes:
-      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./config/authelia/configuration.yml:/config/configuration.yml:ro
       - ${DATA}/authelia:/data
       - ${DATA}/secrets:/secrets:ro
 
@@ -131,7 +131,7 @@ services:
     environment:
       HOST: ${HOST}
     volumes:
-      - ./fetch-gate/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./config/fetch-gate/Caddyfile:/etc/caddy/Caddyfile:ro
     networks: [fetch]
 
   lidarr:
