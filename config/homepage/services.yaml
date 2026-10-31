@@ -27,7 +27,7 @@
     - Requests:
         icon: jellyseerr.svg
         description: Ask for a show or movie
-        href: https://{{HOMEPAGE_VAR_HOST}}:5055/
+        href: https://{{HOMEPAGE_VAR_HOST}}/requests
         siteMonitor: http://127.0.0.1:5055/api/v1/status
         widgets:
           - type: seerr
@@ -245,21 +245,21 @@
         widgets:
           - type: iframe
             name: download-speed
-            src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=1&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
+            src: /grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=1&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
             classes: h-36
             loadingStrategy: lazy
           - type: iframe
             name: services
-            src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=2&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
+            src: /grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=2&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
             classes: h-36
             loadingStrategy: lazy
           - type: iframe
             name: music-downloads
-            src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=3&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
+            src: /grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=3&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
             classes: h-36
             loadingStrategy: lazy
           - type: iframe
             name: cpu
-            src: https://{{HOMEPAGE_VAR_HOST}}/grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=5&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
+            src: /grafana/d-solo/homelab-media/home-lab-media?orgId=1&panelId=5&theme=dark&from=now-6h&to=now&refresh=30s&hideLogo=true
             classes: h-36
             loadingStrategy: lazy
