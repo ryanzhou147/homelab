@@ -63,4 +63,4 @@ ln -sf "$PWD"/systemd/*.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now homelab-download-status.timer homelab-lab-metrics.service
 
-echo "Running. Next steps are in README.md, from 'Open the lab'."
+echo "Running. Next steps are in README.md, under 'First run'."

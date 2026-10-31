@@ -1,36 +1,40 @@
+<div align="center">
+
 # homelab
 
-A media server on one Linux PC. It is reachable only over Tailscale, behind one login.
+A media server on one PC, reachable only over Tailscale.
 
-| | |
-|---|---|
-| Watch | Jellyfin, Seerr for requests, Bazarr for subtitles |
-| Listen | Navidrome, with Spotify playlists and Liked Songs synced in |
-| Fetch | Sonarr, Radarr, Prowlarr, qBittorrent, Lidarr, slskd, Soularr |
-| Home page | Homepage, with live numbers from each app |
+<a href="https://jellyfin.org"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/jellyfin.svg" height="40" alt="Jellyfin" title="Jellyfin"></a>
+<a href="https://github.com/seerr-team/seerr"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/seerr.svg" height="40" alt="Seerr" title="Seerr"></a>
+<a href="https://www.bazarr.media"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/bazarr.svg" height="40" alt="Bazarr" title="Bazarr"></a>
+<a href="https://www.navidrome.org"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/navidrome.svg" height="40" alt="Navidrome" title="Navidrome"></a>
+<a href="https://sonarr.tv"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/sonarr.svg" height="40" alt="Sonarr" title="Sonarr"></a>
+<a href="https://radarr.video"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/radarr.svg" height="40" alt="Radarr" title="Radarr"></a>
+<a href="https://prowlarr.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/prowlarr.svg" height="40" alt="Prowlarr" title="Prowlarr"></a>
+<a href="https://www.qbittorrent.org"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/qbittorrent.svg" height="40" alt="qBittorrent" title="qBittorrent"></a>
+<a href="https://lidarr.audio"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/lidarr.svg" height="40" alt="Lidarr" title="Lidarr"></a>
+<a href="https://github.com/slskd/slskd"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/slskd.svg" height="40" alt="slskd" title="slskd"></a>
+<a href="https://gethomepage.dev"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/png/homepage.png" height="40" alt="Homepage" title="Homepage"></a>
 
-Caddy is the only entrance and Authelia checks the login. Every app listens on 127.0.0.1.
+<a href="https://tailscale.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/tailscale.svg" height="24" alt="Tailscale" title="Tailscale"></a>
+<a href="https://caddyserver.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/caddy.svg" height="24" alt="Caddy" title="Caddy"></a>
+<a href="https://www.authelia.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/authelia.svg" height="24" alt="Authelia" title="Authelia"></a>
+<a href="https://www.docker.com"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/docker.svg" height="24" alt="Docker" title="Docker"></a>
+<a href="https://www.rust-lang.org"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/rust.svg" height="24" alt="Rust" title="Rust"></a>
 
-## Layout
-
-```
-compose.yml    every container
-config/        Caddy, Authelia, Homepage and the fetch gate
-rust/          the homelab binary: Spotify sync, downloads, disk guard, metrics
-scripts/       setup and maintenance
-systemd/       timers that run the binary
-```
+</div>
 
 ## Install
 
 Needs Linux with Docker Compose 2.30+ and user id 1000, a `/dev/dri/renderD*` GPU, Tailscale with HTTPS certificates, and Rust.
 
 ```sh
-cp .env.example .env     # fill it in; the comments say how
-./scripts/setup.sh       # secrets, login, core apps, timers
+cp .env.example .env    # fill it in
+./scripts/setup.sh
 ```
 
-## Open the lab
+<details>
+<summary>First run</summary>
 
 1. Open `https://HOST/` and sign in as `LAB_USER`.
 2. Finish the Jellyfin setup at `/video/`, with `LAB_USER` as the admin.
@@ -39,11 +43,14 @@ cp .env.example .env     # fill it in; the comments say how
 5. Run `./scripts/set-password.sh` to give every app one password.
 6. Run `homelab homepage-secrets && docker compose up -d homepage`.
 
-## Optional
+</details>
+
+<details>
+<summary>Optional parts</summary>
 
 | Part | How |
 |---|---|
-| Music fetchers | `./scripts/start-music-fetch.sh` |
+| Music fetchers (Lidarr, slskd, Soularr) | `./scripts/start-music-fetch.sh` |
 | Spotify sync | Make an app at developer.spotify.com with the redirect `http://127.0.0.1:18080/callback`, put its `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `DATA/secrets/spotify.env`, run `homelab sync-spotify --auth`, then `start-music-fetch.sh` again |
 | Video fetchers | `docker compose up -d sonarr radarr prowlarr qbittorrent`; sign in to qBittorrent with the password from its log, turn off its Host header check, then connect the others to it |
 | Subtitles | After the video fetchers: `./scripts/setup-bazarr.sh`, then step 6 again |
@@ -54,3 +61,5 @@ cp .env.example .env     # fill it in; the comments say how
 | First albums | `DATA/priority-albums.txt`, one `Artist - Album` per line |
 
 After a Rust change: `cargo install --locked --path rust`, then `systemctl --user restart homelab-lab-metrics`.
+
+</details>
