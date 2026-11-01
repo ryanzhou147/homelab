@@ -26,7 +26,17 @@
 		}
 	}
 	respond @foreign_origin "Forbidden" 403
-	@other_site header_regexp Sec-Fetch-Site ^(cross|same)-site$
+	# A plain page load in a tab (a link click) may come from any site: the other site cannot read the
+	# reply, and a page load changes nothing in these apps. Not in a frame: that would let another
+	# site lay its page over the apps' buttons.
+	@other_site {
+		header_regexp Sec-Fetch-Site ^(cross|same)-site$
+		not {
+			method GET HEAD
+			header Sec-Fetch-Mode navigate
+			header Sec-Fetch-Dest document
+		}
+	}
 	respond @other_site "Forbidden" 403
 }
 
@@ -60,8 +70,7 @@ http://:16767 {
 	reverse_proxy 127.0.0.1:6767
 }
 
-# Seerr's pages come from the lab on port 5055, so its Origin has the port. Links from the home page on
-# port 443 are same-site, so same-site page loads may pass; same-site API calls may not.
+# Seerr's pages come from the lab on port 5055 or REQUESTS_HOST, so those are its allowed Origins.
 http://:15055 {
 	# Only Docker's port proxy (the PC's 127.0.0.1 ports) may come in, not other containers on
 	# the fetch network such as Jellyfin.
@@ -81,8 +90,9 @@ http://:15055 {
 	@other_site {
 		header_regexp Sec-Fetch-Site ^(cross|same)-site$
 		not {
-			header Sec-Fetch-Site same-site
+			method GET HEAD
 			header Sec-Fetch-Mode navigate
+			header Sec-Fetch-Dest document
 		}
 	}
 	respond @other_site "Forbidden" 403
