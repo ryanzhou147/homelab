@@ -313,6 +313,24 @@ services:
       - ${MEDIA}/video:/data/video
     depends_on: {fetch-gate: {condition: service_started, restart: true}}
 
+  # Music discovery: Explo gets this week's ListenBrainz recommendations, downloads them from
+  # YouTube into ${MEDIA}/music/explo and makes a Navidrome playlist. It runs once per call, from
+  # the homelab-discover timer; run scripts/setup-explo.sh first. Navidrome is reached through
+  # Caddy, like the Jellyfin SSO plugin reaches Authelia (see the ufw rule at the bottom).
+  explo:
+    image: ghcr.io/lumepart/explo:v1.2.0
+    profiles: [discovery]
+    security_opt: ["no-new-privileges:true"]
+    # YouTube changes often, so yt-dlp is updated first (the image's own copy is used if that
+    # fails, e.g. before the network is up); Explo then runs as the media owner.
+    entrypoint: ["sh", "-c", "pip install -q --disable-pip-version-check --root-user-action=ignore -U yt-dlp; exec su-exec 1000:1000 ./explo --config /opt/explo/.env"]
+    extra_hosts:
+      - "${HOST}:${TS_IP}"
+    volumes:
+      - ${DATA}/explo/.env:/opt/explo/.env:ro
+      - ${DATA}/explo/config:/opt/explo/config
+      - ${MEDIA}/music/explo:/data
+
   # Requests from the phone: users sign in with their Jellyfin account and pick a show or movie,
   # and Seerr sends it to Sonarr or Radarr. Seerr has no URL base setting, so Caddy serves it on
   # its own port. It shares the gate's network: its setup page has no login until the first

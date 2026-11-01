@@ -1,0 +1,6 @@
+[Unit]
+Description=Get this week's ListenBrainz recommendations into Navidrome (Explo)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.cargo/bin/homelab discover

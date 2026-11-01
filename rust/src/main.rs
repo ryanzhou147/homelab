@@ -2,6 +2,7 @@
 
 mod common;
 mod configure;
+mod discover;
 mod disk_guard;
 mod exported;
 mod fill_loop;
@@ -55,6 +56,8 @@ enum Command {
     FillLoop(fill_loop::Args),
     /// Stop the music downloads when the media disk is low.
     DiskGuard(disk_guard::Args),
+    /// Get this week's ListenBrainz recommendations into Navidrome with Explo.
+    Discover(discover::Args),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -71,5 +74,6 @@ fn main() -> anyhow::Result<()> {
         Command::ConfigureMusicFetch(a) => configure::run(a),
         Command::FillLoop(a) => fill_loop::run(a),
         Command::DiskGuard(a) => disk_guard::run(a),
+        Command::Discover(a) => discover::run(a),
     }
 }

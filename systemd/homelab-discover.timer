@@ -1,0 +1,9 @@
+[Unit]
+Description=Get ListenBrainz recommendations each Monday
+
+[Timer]
+OnCalendar=Mon 06:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

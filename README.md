@@ -60,6 +60,7 @@ cp .env.example .env    # fill it in
 | Music fetchers (Lidarr, slskd, Soularr) | `./scripts/start-music-fetch.sh` |
 | Spotify sync | Make an app at developer.spotify.com with the redirect `http://127.0.0.1:18080/callback`, put its `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `DATA/secrets/spotify.env`, run `homelab sync-spotify --auth`, then `start-music-fetch.sh` again |
 | Video fetchers | `docker compose up -d sonarr radarr prowlarr qbittorrent`; sign in to qBittorrent with the password from its log, turn off its Host header check, then connect the others to it |
+| Weekly discovery | Link Navidrome to ListenBrainz (Personal > ListenBrainz), then `./scripts/setup-explo.sh` |
 | Subtitles | After the video fetchers: `./scripts/setup-bazarr.sh`, then step 6 again |
 | Jellyfin with the lab login | `sudo ufw allow from 172.30.77.0/24 to TS_IP port 443 proto tcp`, then `./scripts/configure-jellyfin-sso.sh` |
 | Encrypted data | `sudo ./scripts/setup-master-password.sh`; after each boot, `sudo ./scripts/vault-unlock.sh` |
