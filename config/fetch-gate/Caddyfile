@@ -28,13 +28,14 @@
 	respond @foreign_origin "Forbidden" 403
 	# A plain page load in a tab (a link click) may come from any site: the other site cannot read the
 	# reply, and a page load changes nothing in these apps. Not in a frame: that would let another
-	# site lay its page over the apps' buttons.
+	# site lay its page over the apps' buttons. No query string either, which GET actions would need.
 	@other_site {
 		header_regexp Sec-Fetch-Site ^(cross|same)-site$
 		not {
 			method GET HEAD
 			header Sec-Fetch-Mode navigate
 			header Sec-Fetch-Dest document
+			expression {http.request.uri.query} == ""
 		}
 	}
 	respond @other_site "Forbidden" 403
@@ -93,6 +94,7 @@ http://:15055 {
 			method GET HEAD
 			header Sec-Fetch-Mode navigate
 			header Sec-Fetch-Dest document
+			expression {http.request.uri.query} == ""
 		}
 	}
 	respond @other_site "Forbidden" 403
