@@ -54,6 +54,11 @@ curl -sf -X POST "$J/Users/$user_id/Password" -H "$H" -H 'Content-Type: applicat
 # The Spotify sync and the home page sign in to Navidrome as the admin with this password.
 if [ "$USER_NAME" = "$LAB_USER" ]; then
 	(umask 077; printf 'NAVIDROME_PASSWORD=%s\n' "$pw" >"$DATA/secrets/navidrome.env")
+	# Explo keeps its own copy of the password; it is written again from navidrome.env.
+	if [ -f "$DATA/explo/.env" ]; then
+		rm -f "$DATA/explo/.env"
+		echo "Run ./scripts/setup-explo.sh again, so Explo gets the new password."
+	fi
 fi
 
 # Check each login with the new password.
