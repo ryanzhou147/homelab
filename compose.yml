@@ -324,6 +324,10 @@ services:
     # YouTube changes often, so yt-dlp is updated first (the image's own copy is used if that
     # fails, e.g. before the network is up); Explo then runs as the media owner.
     entrypoint: ["sh", "-c", "pip install -q --disable-pip-version-check --root-user-action=ignore -U yt-dlp; exec su-exec 1000:1000 ./explo --config /opt/explo/.env"]
+    # 25 recommendations by default; 'homelab discover' picks ListenBrainz's 50-song weekly playlist
+    # when there is one. Not in the .env file: a value there would win over this one.
+    environment:
+      LISTENBRAINZ_DISCOVERY: api
     extra_hosts:
       - "${HOST}:${TS_IP}"
     volumes:

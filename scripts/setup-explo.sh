@@ -34,8 +34,6 @@ print(row[0] if row else "")' "$tmp/navidrome.db" "$LAB_USER")
 DISCOVERY_SERVICE=listenbrainz
 LISTENBRAINZ_USER='$user'
 LISTENBRAINZ_USER_TOKEN='$token'
-# The recommendations API works from the first week; 'playlist' waits for ListenBrainz's weekly one.
-LISTENBRAINZ_DISCOVERY=api
 EXPLO_SYSTEM=subsonic
 SYSTEM_URL=https://$HOST/music
 SYSTEM_USERNAME='$LAB_USER'
