@@ -2,7 +2,7 @@
 
 # homelab
 
-A media server on one PC, reachable only over Tailscale.
+Your own Netflix and Spotify, running at home.
 
 <a href="https://jellyfin.org"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/jellyfin.svg" height="40" alt="Jellyfin" title="Jellyfin"></a>
 <a href="https://github.com/seerr-team/seerr"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/seerr.svg" height="40" alt="Seerr" title="Seerr"></a>
@@ -24,7 +24,7 @@ A media server on one PC, reachable only over Tailscale.
 
 </div>
 
-- One login for every app, reachable only over Tailscale
+- One login for every app
 - Request a show or movie from your phone: it downloads, files itself and gets subtitles
 - Spotify playlists and Liked Songs sync to Navidrome, and missing songs download
 - A home page with live downloads, new episodes and graphs
