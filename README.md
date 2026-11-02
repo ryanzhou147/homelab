@@ -32,43 +32,97 @@ Your own Netflix and Spotify, running at home.
 - One Rust binary for the sync, downloads, disk guard and metrics
 - LUKS2 encryption (AES-256, Argon2id) of logins, keys and databases, behind one master password
 
-## Install
+## Quick start
 
-Needs a Linux PC with Docker, a free Tailscale account and Rust. Run it from the PC's main user account.
+Needs a Linux PC with Docker, a free Tailscale account and Rust. Install from the PC's main user account.
 
 ```sh
-cp .env.example .env    # fill it in
+cp .env.example .env    # your Tailscale name and folders
 ./scripts/setup.sh
 ```
 
-<details>
-<summary>First run</summary>
+Then finish the [first run](#first-run) in the browser.
+
+## Features
+
+| Feature | Turn it on |
+|---|---|
+| Movies, shows and music, one login, home page | Included |
+| Automatic movie and show downloads | [Video downloads](#video-downloads) |
+| Automatic music downloads | [Music downloads](#music-downloads) |
+| Spotify playlist sync | [Spotify sync](#spotify-sync) |
+| Subtitles | [Subtitles](#subtitles) |
+| Weekly discovery playlist | [Weekly discovery](#weekly-discovery) |
+| Jellyfin with the lab login | [Single sign-on](#single-sign-on-for-jellyfin) |
+| Encryption | [Encryption](#encryption) |
+| Graphs in the top bar | [Graphs](#graphs) |
+
+## Setup
+
+`HOST`, `LAB_USER`, `TS_IP` and `DATA` below are the values from your `.env`.
+
+### First run
+
+After `./scripts/setup.sh`:
 
 1. Open `https://HOST/` and sign in as `LAB_USER`.
 2. Finish the Jellyfin setup at `/video/`, with `LAB_USER` as the admin.
 3. Open `/music/` once, so that Navidrome makes your account.
 4. Finish the Seerr setup at `https://HOST:5055/` with your Jellyfin account.
 5. Run `./scripts/set-password.sh` to give every app one password.
-6. Run `homelab homepage-secrets && docker compose up -d homepage`.
+6. Run `homelab homepage-secrets && docker compose up -d homepage`, so the home page shows live numbers.
 
-</details>
+### Video downloads
 
-<details>
-<summary>Optional parts</summary>
+1. Run `docker compose up -d sonarr radarr prowlarr qbittorrent`.
+2. Sign in to qBittorrent with the password from `docker compose logs qbittorrent`, and turn off its Host header check.
+3. In Sonarr and Radarr, add qBittorrent as the download client.
+4. In Prowlarr, add Sonarr and Radarr under Settings > Apps, then add the indexers you want.
 
-| Part | How |
-|---|---|
-| Music fetchers (Lidarr, slskd, Soularr) | `./scripts/start-music-fetch.sh` |
-| Spotify sync | Make an app at developer.spotify.com with the redirect `http://127.0.0.1:18080/callback`, put its `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `DATA/secrets/spotify.env`, run `homelab sync-spotify --auth`, then `start-music-fetch.sh` again |
-| Video fetchers | `docker compose up -d sonarr radarr prowlarr qbittorrent`; sign in to qBittorrent with the password from its log, turn off its Host header check, then connect the others to it |
-| Weekly discovery | Link Navidrome to ListenBrainz (Personal > ListenBrainz), then `./scripts/setup-explo.sh` |
-| Subtitles | After the video fetchers: `./scripts/setup-bazarr.sh`, then step 6 again |
-| Jellyfin with the lab login | `sudo ufw allow from 172.30.77.0/24 to TS_IP port 443 proto tcp`, then `./scripts/configure-jellyfin-sso.sh` |
-| Encrypted data | `sudo ./scripts/setup-master-password.sh`; after each boot, `sudo ./scripts/vault-unlock.sh` |
-| Top bar graphs | Prometheus that scrapes `127.0.0.1:9102`, and Grafana on `127.0.0.1:3000` at `/grafana` with anonymous viewers and a Prometheus data source with the uid `prometheus`; without them, delete `config/homepage/custom.js` |
-| Download alerts | `NOTIFY_CMD` in `.env`, e.g. `notify-send` |
-| First albums | `DATA/priority-albums.txt`, one `Artist - Album` per line |
+### Music downloads
 
-After a Rust change: `cargo install --locked --path rust`, then `systemctl --user restart homelab-lab-metrics`.
+Run `./scripts/start-music-fetch.sh`. It starts Lidarr, slskd and Soularr and checks each one.
 
-</details>
+To fetch some albums first, list them in `DATA/priority-albums.txt`, one `Artist - Album` per line.
+
+### Spotify sync
+
+1. Make an app at developer.spotify.com with the redirect URI `http://127.0.0.1:18080/callback`.
+2. Put its `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `DATA/secrets/spotify.env`.
+3. Run `homelab sync-spotify --auth`.
+4. Run `./scripts/start-music-fetch.sh` again to turn on the daily sync.
+
+### Subtitles
+
+After the video downloads, run `./scripts/setup-bazarr.sh`, then step 6 of the first run.
+
+### Weekly discovery
+
+1. In Navidrome, link your account to ListenBrainz: Personal > ListenBrainz.
+2. Run `./scripts/setup-explo.sh`. A playlist of new songs then arrives every Monday.
+
+### Single sign-on for Jellyfin
+
+1. Let the containers reach the lab: `sudo ufw allow from 172.30.77.0/24 to TS_IP port 443 proto tcp`.
+2. Run `./scripts/configure-jellyfin-sso.sh`.
+
+### Encryption
+
+Run `sudo ./scripts/setup-master-password.sh`. It moves the lab's data into a LUKS2 vault (AES-256, Argon2id) that one master password opens. After each reboot, unlock it with `sudo ./scripts/vault-unlock.sh`. Music and video stay outside the vault.
+
+### Graphs
+
+The top bar graphs read Prometheus through Grafana. They need:
+
+- Prometheus that scrapes `127.0.0.1:9102`.
+- Grafana on `127.0.0.1:3000`, served at `/grafana`, with anonymous viewers and a Prometheus data source with the uid `prometheus`.
+
+Without them, delete `config/homepage/custom.js`.
+
+### Download alerts
+
+Set `NOTIFY_CMD` in `.env`, for example to `notify-send`.
+
+### After a code change
+
+Run `cargo install --locked --path rust`, then `systemctl --user restart homelab-lab-metrics`.
