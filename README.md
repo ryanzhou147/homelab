@@ -41,7 +41,7 @@ cp .env.example .env    # your Tailscale name and folders
 ./scripts/setup.sh
 ```
 
-Then finish the [first run](#first-run) in the browser.
+Then open `https://HOST` and sign in as `LAB_USER`.
 
 ## Features
 
@@ -63,14 +63,7 @@ Then finish the [first run](#first-run) in the browser.
 
 ### First run
 
-After `./scripts/setup.sh`:
-
-1. Open `https://HOST/` and sign in as `LAB_USER`.
-2. Finish the Jellyfin setup at `/video/`, with `LAB_USER` as the admin.
-3. Open `/music/` once, so that Navidrome makes your account.
-4. Finish the Seerr setup at `https://HOST:5055/` with your Jellyfin account.
-5. Run `./scripts/set-password.sh` to give every app one password.
-6. Run `homelab homepage-secrets && docker compose up -d homepage`, so the home page shows live numbers.
+`setup.sh` does it: it makes your account in Jellyfin, Navidrome and Seerr with the password you chose, gives Jellyfin its Movies and Shows libraries, and connects Seerr to Jellyfin. To change the password later, run `./scripts/set-password.sh`.
 
 ### Video downloads
 
@@ -93,7 +86,7 @@ To fetch some albums first, list them in `DATA/priority-albums.txt`, one `Artist
 
 ### Subtitles
 
-After the video downloads, run `./scripts/setup-bazarr.sh`, then step 6 of the first run.
+After the video downloads, run `./scripts/setup-bazarr.sh`, then `homelab homepage-secrets && docker compose up -d homepage`.
 
 ### Weekly discovery
 

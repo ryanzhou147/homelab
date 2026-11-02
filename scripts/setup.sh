@@ -12,14 +12,14 @@ for v in HOST TS_IP DATA MEDIA LAB_USER; do
 done
 [ -z "${RENDER_DEVICE:-}" ] || [ -e "$RENDER_DEVICE" ] || { echo "No $RENDER_DEVICE: fix RENDER_DEVICE in .env (ls /dev/dri)."; exit 1; }
 [ -z "${RENDER_DEVICE:-}" ] || [ -n "${RENDER_GID:-}" ] || { echo "Set RENDER_GID in .env (getent group render)."; exit 1; }
-for tool in docker openssl cargo; do
+for tool in docker openssl cargo curl python3 script; do
 	command -v "$tool" >/dev/null || { echo "Install $tool first."; exit 1; }
 done
 AUTHELIA="docker run --rm authelia/authelia:4.39.28 authelia"
 S="$DATA/secrets"
 
 # Media folders stay readable by the apps; everything after this is private.
-mkdir -p "$MEDIA"/{music,video,downloads/qbittorrent}
+mkdir -p "$MEDIA"/{music,video/movies,video/shows,downloads/qbittorrent}
 umask 077
 # Not navidrome: it runs as root without capabilities, so Docker must make its folder.
 mkdir -p "$DATA"/{caddy,authelia,jellyfin/config,jellyfin/cache,seerr,status,secrets,prometheus,grafana}
@@ -71,4 +71,12 @@ ln -sf "$PWD"/systemd/*.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now homelab-download-status.timer homelab-lab-metrics.service
 
-echo "Running. Next steps: README.md, under 'First run'."
+# Accounts in Jellyfin, Navidrome and Seerr; first-run.sh skips what is done, so a failed first
+# install finishes here on the next run. Then the home page's keys, while it has none.
+LAB_PASSWORD="${pw:-}" ./scripts/first-run.sh
+if [ ! -s "$S/homepage.env" ]; then
+	~/.cargo/bin/homelab homepage-secrets
+	docker compose up -d homepage
+fi
+
+echo "Running. Open https://$HOST and sign in as $LAB_USER."
