@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-time setup for the music fetchers (Lidarr, slskd, Soularr): folders, a Lidarr API key, a new
 # Soulseek account and Soularr's config, all under $DATA (inside the vault). Existing files are kept.
-#   ./scripts/setup-music-fetch.sh && docker compose up -d lidarr slskd soularr
+#   ./scripts/start-music-fetch.sh runs it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source .env
@@ -82,4 +82,3 @@ max_bytes = 1048576
 backup_count = 3
 EOF
 fi
-echo "Music fetch setup done. Start it: docker compose up -d lidarr slskd soularr"
