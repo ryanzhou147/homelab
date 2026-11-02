@@ -75,9 +75,8 @@ After `./scripts/setup.sh`:
 ### Video downloads
 
 1. Run `docker compose up -d sonarr radarr prowlarr qbittorrent`.
-2. Sign in to qBittorrent with the password from `docker compose logs qbittorrent`, and turn off its Host header check.
-3. In Sonarr and Radarr, add qBittorrent as the download client.
-4. In Prowlarr, add Sonarr and Radarr under Settings > Apps, then add the indexers you want.
+2. Run `homelab configure-video-fetch`. It connects qBittorrent, Sonarr, Radarr and Prowlarr.
+3. In Prowlarr, add the indexers you want.
 
 ### Music downloads
 

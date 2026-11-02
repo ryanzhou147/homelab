@@ -2,6 +2,7 @@
 
 mod common;
 mod configure;
+mod configure_video;
 mod discover;
 mod disk_guard;
 mod exported;
@@ -52,6 +53,8 @@ enum Command {
     SpotdlAlbum(spotdl_album::Args),
     /// Configure Lidarr for the music fetchers and check each piece.
     ConfigureMusicFetch(configure::Args),
+    /// Wire qBittorrent, Sonarr, Radarr and Prowlarr together.
+    ConfigureVideoFetch(configure_video::Args),
     /// Download playlist songs until all are in the library.
     FillLoop(fill_loop::Args),
     /// Stop the music downloads when the media disk is low.
@@ -72,6 +75,7 @@ fn main() -> anyhow::Result<()> {
         Command::HomepageSecrets(a) => homepage_secrets::run(a),
         Command::SpotdlAlbum(a) => spotdl_album::run(a),
         Command::ConfigureMusicFetch(a) => configure::run(a),
+        Command::ConfigureVideoFetch(a) => configure_video::run(a),
         Command::FillLoop(a) => fill_loop::run(a),
         Command::DiskGuard(a) => disk_guard::run(a),
         Command::Discover(a) => discover::run(a),

@@ -22,7 +22,7 @@ const APP_NAME: &str = "Homepage";
 #[derive(clap::Args)]
 pub struct Args {}
 
-fn arr_key(data: &Path, app: &str) -> anyhow::Result<String> {
+pub(crate) fn arr_key(data: &Path, app: &str) -> anyhow::Result<String> {
     let path = data.join(app).join("config.xml");
     let text = std::fs::read_to_string(&path).with_context(|| path.display().to_string())?;
     let re = regex::Regex::new(r"<ApiKey>(\w+)</ApiKey>")?;
