@@ -30,11 +30,11 @@ Your own Netflix and Spotify, running at home.
 - Spotify playlists and Liked Songs sync to Navidrome, and missing songs download
 - A home page with live downloads, new episodes and graphs
 - One Rust binary for the sync, downloads, disk guard and metrics
-- Optional LUKS2 encryption (AES-256, Argon2id) of logins, keys and databases, behind one master password
+- LUKS2 encryption (AES-256, Argon2id) of logins, keys and databases, behind one master password
 
 ## Install
 
-Needs a Linux PC with Docker, a graphics card (it converts video while it streams), a free Tailscale account and Rust. Run it from the PC's main user account.
+Needs a Linux PC with Docker, a free Tailscale account and Rust. Run it from the PC's main user account.
 
 ```sh
 cp .env.example .env    # fill it in

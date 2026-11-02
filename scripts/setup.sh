@@ -7,10 +7,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [ -f .env ] || { echo "Copy .env.example to .env and fill it in first."; exit 1; }
 source .env
-for v in HOST TS_IP DATA MEDIA LAB_USER RENDER_DEVICE RENDER_GID; do
+for v in HOST TS_IP DATA MEDIA LAB_USER; do
 	[ -n "${!v:-}" ] || { echo "Set $v in .env."; exit 1; }
 done
-[ -e "$RENDER_DEVICE" ] || { echo "No $RENDER_DEVICE: set RENDER_DEVICE in .env (ls /dev/dri)."; exit 1; }
+[ -z "${RENDER_DEVICE:-}" ] || [ -e "$RENDER_DEVICE" ] || { echo "No $RENDER_DEVICE: fix RENDER_DEVICE in .env (ls /dev/dri)."; exit 1; }
+[ -z "${RENDER_DEVICE:-}" ] || [ -n "${RENDER_GID:-}" ] || { echo "Set RENDER_GID in .env (getent group render)."; exit 1; }
 for tool in docker openssl cargo; do
 	command -v "$tool" >/dev/null || { echo "Install $tool first."; exit 1; }
 done
@@ -63,4 +64,4 @@ ln -sf "$PWD"/systemd/*.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now homelab-download-status.timer homelab-lab-metrics.service
 
-echo "Running. Next steps are in README.md, under 'First run'."
+echo "Running. Next steps: README.md, under 'First run'."

@@ -109,11 +109,11 @@ services:
     extra_hosts:
       - "${HOST}:${TS_IP}"
       - "${OLD_HOST:-old.invalid}:${TS_IP}"
-    # Transcodes on the GPU that RENDER_DEVICE names (ls /dev/dri).
+    # Transcodes on the GPU that RENDER_DEVICE names (ls /dev/dri); without one, on the CPU.
     devices:
-      - ${RENDER_DEVICE}:${RENDER_DEVICE}
+      - ${RENDER_DEVICE:-/dev/null}:${RENDER_DEVICE:-/dev/null}
     group_add:
-      - "${RENDER_GID}"
+      - "${RENDER_GID:-65534}"
     volumes:
       - ${DATA}/jellyfin/config:/config
       - ${DATA}/jellyfin/cache:/cache
