@@ -243,23 +243,40 @@ fn save_env_key(path: &Path, key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+/// The file's value, else one typed in. Typed values are saved only after the sign-in works.
+fn setting_or_ask(creds_path: &Path, key: &str, prompt: &str) -> Result<(String, bool)> {
+    let value = file_setting(&load_env(creds_path), key);
+    if !value.is_empty() {
+        return Ok((value, false));
+    }
+    print!("{prompt}: ");
+    std::io::Write::flush(&mut std::io::stdout())?;
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line)?;
+    let value = line.trim().to_string();
+    if value.is_empty() {
+        die(&format!("No {prompt}: make an app at developer.spotify.com first."));
+    }
+    Ok((value, true))
+}
+
 fn cmd_auth(creds_path: &Path) -> Result<()> {
     use std::os::unix::fs::DirBuilderExt;
-    let creds = load_env(creds_path);
-    let client_id = file_setting(&creds, "SPOTIFY_CLIENT_ID");
-    let client_secret = file_setting(&creds, "SPOTIFY_CLIENT_SECRET");
-    if client_id.is_empty() || client_secret.is_empty() {
-        die(&format!(
-            "Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in {} first.",
-            creds_path.display()
-        ));
-    }
-    let refresh_token = spotify::auth(&client_id, &client_secret)?;
     if let Some(dir) = creds_path.parent() {
         std::fs::DirBuilder::new()
             .recursive(true)
             .mode(0o700)
             .create(dir)?;
+    }
+    let (client_id, new_id) = setting_or_ask(creds_path, "SPOTIFY_CLIENT_ID", "Spotify app Client ID")?;
+    let (client_secret, new_secret) =
+        setting_or_ask(creds_path, "SPOTIFY_CLIENT_SECRET", "Spotify app Client secret")?;
+    let refresh_token = spotify::auth(&client_id, &client_secret)?;
+    if new_id {
+        save_env_key(creds_path, "SPOTIFY_CLIENT_ID", &client_id)?;
+    }
+    if new_secret {
+        save_env_key(creds_path, "SPOTIFY_CLIENT_SECRET", &client_secret)?;
     }
     save_env_key(creds_path, "SPOTIFY_REFRESH_TOKEN", &refresh_token)?;
     println!("Refresh token saved to {}.", creds_path.display());
@@ -300,11 +317,10 @@ pub fn run(args: Args) -> Result<()> {
     let client_id = file_setting(&spotify_env, "SPOTIFY_CLIENT_ID");
     let client_secret = file_setting(&spotify_env, "SPOTIFY_CLIENT_SECRET");
     let refresh_token = file_setting(&spotify_env, "SPOTIFY_REFRESH_TOKEN");
+    // The daily timer runs from the first setup; until the sign-in, there is nothing to sync.
     if client_id.is_empty() || client_secret.is_empty() || refresh_token.is_empty() {
-        die(&format!(
-            "Run --auth first, or set credentials in {}.",
-            spotify_creds.display()
-        ));
+        println!("Spotify sync is off: run 'homelab sync-spotify --auth' to turn it on.");
+        return Ok(());
     }
     let navidrome_creds = data.join("secrets/navidrome.env");
     let password = file_setting(&load_env(&navidrome_creds), "NAVIDROME_PASSWORD");
