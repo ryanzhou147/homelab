@@ -47,68 +47,41 @@ It writes `.env` with this PC's values, asks for a password, and prints the addr
 | Feature | Turn it on |
 |---|---|
 | Movies, shows and music, one login, home page | Included |
-| Automatic movie and show downloads | [Video downloads](#video-downloads) |
-| Automatic music downloads | [Music downloads](#music-downloads) |
+| Automatic movie and show downloads | Add [indexers](#indexers) |
+| Automatic music downloads | Included |
 | Spotify playlist sync | [Spotify sync](#spotify-sync) |
-| Subtitles | [Subtitles](#subtitles) |
+| Subtitles | Included |
 | Weekly discovery playlist | [Weekly discovery](#weekly-discovery) |
-| Jellyfin with the lab login | [Single sign-on](#single-sign-on-for-jellyfin) |
+| Jellyfin with the lab login | Included |
 | Encryption | [Encryption](#encryption) |
 | Graphs in the top bar | Included |
 
 ## Setup
 
-`HOST`, `LAB_USER`, `TS_IP` and `DATA` below are the values from your `.env`.
+`setup.sh` installs and connects every app. These parts need your own accounts. `HOST` and `DATA` are the values in `.env`.
 
-### First run
+### Indexers
 
-`setup.sh` does it: it makes your account in Jellyfin, Navidrome and Seerr with the password you chose, gives Jellyfin its Movies and Shows libraries, and connects Seerr to Jellyfin. To change the password later, run `./scripts/set-password.sh`.
-
-### Video downloads
-
-1. Run `docker compose up -d sonarr radarr prowlarr qbittorrent`.
-2. Run `~/.cargo/bin/homelab configure-video-fetch`. It connects qBittorrent, Sonarr, Radarr and Prowlarr.
-3. In Prowlarr, add the indexers you want.
-
-### Music downloads
-
-Run `./scripts/start-music-fetch.sh`. It starts Lidarr, slskd and Soularr and checks each one.
-
-To fetch some albums first, list them in `DATA/priority-albums.txt`, one `Artist - Album` per line.
+In Prowlarr at `https://HOST/prowlarr`, add the indexers you want. Shows and movies then download when you ask for them.
 
 ### Spotify sync
 
 1. Make an app at developer.spotify.com with the redirect URI `http://127.0.0.1:18080/callback`.
-2. Put its `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `DATA/secrets/spotify.env`.
-3. Run `~/.cargo/bin/homelab sync-spotify --auth`.
-4. Run `./scripts/start-music-fetch.sh` again to turn on the daily sync.
-
-### Subtitles
-
-After the video downloads, run `./scripts/setup-bazarr.sh`, then `~/.cargo/bin/homelab homepage-secrets && docker compose up -d homepage`.
+2. Run `~/.cargo/bin/homelab sync-spotify --auth`, paste the app's Client ID and secret, and sign in.
 
 ### Weekly discovery
 
 1. In Navidrome, link your account to ListenBrainz: Personal > ListenBrainz.
 2. Run `./scripts/setup-explo.sh`. A playlist of new songs then arrives every Monday.
 
-### Single sign-on for Jellyfin
-
-1. Let the containers reach the lab: `sudo ufw allow from 172.30.77.0/24 to TS_IP port 443 proto tcp`.
-2. Run `./scripts/configure-jellyfin-sso.sh`.
-
 ### Encryption
 
 Run `sudo ./scripts/setup-master-password.sh`. It moves the lab's data into a LUKS2 vault (AES-256, Argon2id) that one master password opens. After each reboot, unlock it with `sudo ./scripts/vault-unlock.sh`. Music and video stay outside the vault.
 
-### Graphs
+### Other settings
 
-Included: `setup.sh` starts Prometheus and Grafana for the top bar graphs. When another Prometheus or Grafana already uses port 9090 or 3000, it skips them; then point that one at `127.0.0.1:9102`, serve Grafana at `/grafana` with anonymous viewers, and give its Prometheus data source the uid `prometheus`.
-
-### Download alerts
-
-Set `NOTIFY_CMD` in `.env`, for example to `notify-send`.
-
-### After a code change
-
-Run `./scripts/install-homelab.sh`, then `systemctl --user restart homelab-lab-metrics`.
+- New password: `./scripts/set-password.sh`.
+- Albums to fetch first: list them in `DATA/priority-albums.txt`, one `Artist - Album` per line.
+- Download alerts: set `NOTIFY_CMD` in `.env`, for example to `notify-send`.
+- Graphs when another Prometheus or Grafana holds port 9090 or 3000: point it at `127.0.0.1:9102`, serve Grafana at `/grafana` with anonymous viewers, and give its data source the uid `prometheus`.
+- After a code change: `./scripts/install-homelab.sh`, then `systemctl --user restart homelab-lab-metrics`.
