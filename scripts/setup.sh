@@ -22,10 +22,10 @@ S="$DATA/secrets"
 mkdir -p "$MEDIA"/{music,video,downloads/qbittorrent}
 umask 077
 # Not navidrome: it runs as root without capabilities, so Docker must make its folder.
-mkdir -p "$DATA"/{caddy,authelia,jellyfin/config,jellyfin/cache,seerr,status,secrets}
+mkdir -p "$DATA"/{caddy,authelia,jellyfin/config,jellyfin/cache,seerr,status,secrets,prometheus,grafana}
 
 new_secret() { [ -s "$S/$1" ] || openssl rand -hex 32 >"$S/$1"; }
-for name in authelia_jwt authelia_session authelia_storage authelia_oidc_hmac jellyfin_oidc_secret; do
+for name in authelia_jwt authelia_session authelia_storage authelia_oidc_hmac jellyfin_oidc_secret grafana_admin; do
 	new_secret "$name"
 done
 [ -s "$S/authelia_oidc_key.pem" ] || openssl genrsa -out "$S/authelia_oidc_key.pem" 2048 2>/dev/null
@@ -57,6 +57,13 @@ EOF
 fi
 
 docker compose up -d caddy authelia homepage navidrome jellyfin seerr
+# The top bar graphs: updated when they run, skipped when another program holds port 9090 or 3000.
+if [ -n "$(docker compose --profile graphs ps -q prometheus grafana)" ] ||
+	! ss -Hltn '( sport = :9090 or sport = :3000 )' | grep -q .; then
+	docker compose --profile graphs up -d prometheus grafana
+else
+	echo "Ports 9090 or 3000 are taken: graphs not started (see README, Graphs)."
+fi
 
 cargo install --quiet --locked --path rust
 mkdir -p ~/.config/systemd/user

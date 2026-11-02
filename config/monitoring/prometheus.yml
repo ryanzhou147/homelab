@@ -1,0 +1,8 @@
+# Prometheus for the home page's top bar graphs: the homelab exporter ('homelab metrics').
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: homelab
+    static_configs:
+      - targets: ["127.0.0.1:9102"]

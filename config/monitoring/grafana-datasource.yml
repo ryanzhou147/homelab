@@ -1,0 +1,9 @@
+# The top bar graphs query this data source by its uid, through Grafana's proxy.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://127.0.0.1:9090
+    isDefault: true

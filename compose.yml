@@ -335,6 +335,51 @@ services:
       - ${DATA}/explo/config:/opt/explo/config
       - ${MEDIA}/music/explo:/data
 
+  # Graphs: Prometheus keeps the homelab exporter's numbers and Grafana serves them at /grafana,
+  # where the home page's top bar reads them. setup.sh makes their folders and password and starts
+  # both when ports 9090 and 3000 are free; without those folders, compose stops with an error.
+  prometheus:
+    <<: *local
+    image: prom/prometheus:v3.15.0
+    profiles: [graphs]
+    user: "1000:1000"
+    network_mode: host
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.listen-address=127.0.0.1:9090
+    volumes:
+      - ./config/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - {type: bind, source: "${DATA}/prometheus", target: /prometheus, bind: {create_host_path: false}}
+
+  grafana:
+    <<: *local
+    image: grafana/grafana:13.2.3
+    profiles: [graphs]
+    user: "1000:1000"
+    network_mode: host
+    depends_on: [prometheus]
+    environment:
+      GF_SERVER_HTTP_ADDR: 127.0.0.1
+      GF_SERVER_HTTP_PORT: "3000"
+      GF_SERVER_ROOT_URL: https://${HOST}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Caddy lets only admins reach /grafana; inside it, anyone may read.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /secrets/grafana_admin
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./config/monitoring/grafana-datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - {type: bind, source: "${DATA}/grafana", target: /var/lib/grafana, bind: {create_host_path: false}}
+      - type: bind
+        source: "${DATA}/secrets/grafana_admin"
+        target: /secrets/grafana_admin
+        read_only: true
+        bind: {create_host_path: false}
+
   # Requests from the phone: users sign in with their Jellyfin account and pick a show or movie,
   # and Seerr sends it to Sonarr or Radarr. Seerr has no URL base setting, so Caddy serves it on
   # its own port. It shares the gate's network: its setup page has no login until the first

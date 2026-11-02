@@ -55,7 +55,7 @@ Then finish the [first run](#first-run) in the browser.
 | Weekly discovery playlist | [Weekly discovery](#weekly-discovery) |
 | Jellyfin with the lab login | [Single sign-on](#single-sign-on-for-jellyfin) |
 | Encryption | [Encryption](#encryption) |
-| Graphs in the top bar | [Graphs](#graphs) |
+| Graphs in the top bar | Included |
 
 ## Setup
 
@@ -112,12 +112,7 @@ Run `sudo ./scripts/setup-master-password.sh`. It moves the lab's data into a LU
 
 ### Graphs
 
-The top bar graphs read Prometheus through Grafana. They need:
-
-- Prometheus that scrapes `127.0.0.1:9102`.
-- Grafana on `127.0.0.1:3000`, served at `/grafana`, with anonymous viewers and a Prometheus data source with the uid `prometheus`.
-
-Without them, delete `config/homepage/custom.js`.
+Included: `setup.sh` starts Prometheus and Grafana for the top bar graphs. When another Prometheus or Grafana already uses port 9090 or 3000, it skips them; then point that one at `127.0.0.1:9102`, serve Grafana at `/grafana` with anonymous viewers, and give its Prometheus data source the uid `prometheus`.
 
 ### Download alerts
 
