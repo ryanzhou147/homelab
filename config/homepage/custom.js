@@ -10,11 +10,12 @@
   const speed = (v) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)} MB/s` : `${Math.round(v / 1e3)} kB/s`);
   const percent = (v) => `${Math.round(v)}%`;
   const GRAPHS = [
-    { label: "Down", query: 'rate(node_network_receive_bytes_total{machine="pc"}[2m])', format: speed },
-    { label: "Up", query: 'rate(node_network_transmit_bytes_total{machine="pc"}[2m])', format: speed },
+    { label: "Down", query: "sum(rate(homelab_network_receive_bytes_total[2m]))", format: speed },
+    { label: "Up", query: "sum(rate(homelab_network_transmit_bytes_total[2m]))", format: speed },
     { label: "Services", query: "100 * avg(homelab_service_up)", format: percent, min: 0, max: 100 },
     { label: "Songs", query: 'homelab_spotdl_songs{state="done"}', format: (v) => `${Math.round(v)}` },
-    { label: "CPU", query: 'node_cpu_percent{machine="pc"}', format: percent, min: 0, max: 100 },
+    { label: "CPU", query: "100 * rate(homelab_cpu_busy_seconds_total[2m]) / rate(homelab_cpu_seconds_total[2m])",
+      format: percent, min: 0, max: 100 },
   ];
   const latest = new Map(); // label -> numbers, oldest first
 

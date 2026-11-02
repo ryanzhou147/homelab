@@ -14,6 +14,8 @@ use std::time::Duration;
 
 // All checks run at the same time, and *arr queue + wanted is 2 x 3 s: under the 10 s scrape limit.
 const TIMEOUT: Duration = Duration::from_secs(3);
+/// /proc/stat counts CPU time in ticks of 1/100 s on Linux.
+const USER_HZ: f64 = 100.0;
 const HWMON: &str = "/sys/class/hwmon";
 const ARR: [(&str, &str, &str); 3] = [
     // app, API root, key variable
@@ -225,12 +227,64 @@ fn temperature(_: &Lab, _: Get, _: &str, out: &mut Vec<Sample>) -> anyhow::Resul
     Ok(())
 }
 
+/// The interface of the default route in /proc/net/route: the PC's own network.
+fn default_interface(route: &str) -> Option<&str> {
+    route.lines().skip(1).find_map(|line| {
+        let mut f = line.split_whitespace();
+        let iface = f.next()?;
+        (f.next()? == "00000000").then_some(iface)
+    })
+}
+
+/// Received and sent bytes of one interface in /proc/net/dev.
+fn interface_bytes(dev: &str, iface: &str) -> Option<(u64, u64)> {
+    let line = dev.lines().find(|l| l.trim_start().starts_with(&format!("{iface}:")))?;
+    let f: Vec<u64> = (line.split_once(':')?.1.split_whitespace())
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    Some((*f.first()?, *f.get(8)?))
+}
+
+/// Busy and total CPU seconds since boot, from the "cpu" line of /proc/stat (in 1/100 s).
+fn cpu_seconds(stat: &str) -> Option<(f64, f64)> {
+    let ticks: Vec<f64> = (stat.lines().next()?.strip_prefix("cpu ")?.split_whitespace())
+        .take(8)
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    let total: f64 = ticks.iter().sum();
+    let idle = ticks.get(3)? + ticks.get(4)?;
+    Some(((total - idle) / USER_HZ, total / USER_HZ))
+}
+
+/// The PC's network traffic and CPU time, as counters, for the home page's top bar graphs.
+fn host(_: &Lab, _: Get, _: &str, out: &mut Vec<Sample>) -> anyhow::Result<()> {
+    let route = std::fs::read_to_string("/proc/net/route")?;
+    if let Some(iface) = default_interface(&route) {
+        let dev = std::fs::read_to_string("/proc/net/dev")?;
+        if let Some((rx, tx)) = interface_bytes(&dev, iface) {
+            let label = vec![("interface", iface.to_string())];
+            out.push(("homelab_network_receive_bytes_total", label.clone(), rx.into()));
+            out.push(("homelab_network_transmit_bytes_total", label, tx.into()));
+        }
+    }
+    let stat = std::fs::read_to_string("/proc/stat")?;
+    if let Some((busy, total)) = cpu_seconds(&stat) {
+        for (name, v) in [("homelab_cpu_busy_seconds_total", busy), ("homelab_cpu_seconds_total", total)] {
+            if let Some(n) = Number::from_f64(v) {
+                out.push((name, vec![], n));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn collect(lab: &Lab, get: Get) -> Vec<Sample> {
-    let jobs: [(&str, Job); 7] = [
+    let jobs: [(&str, Job); 8] = [
         ("qbittorrent", qbittorrent),
         ("library", library),
         ("spotdl", spotdl),
         ("temperature", temperature),
+        ("host", host),
         ("sonarr", arr),
         ("radarr", arr),
         ("lidarr", arr),
@@ -365,6 +419,19 @@ mod tests {
         let old = std::time::SystemTime::now() - Duration::from_secs(10 * 3600);
         std::fs::File::options().write(true).open(&file).unwrap().set_modified(old).unwrap();
         assert_eq!(job_tracker_health(dir.path()), (503, "stale".into()));
+    }
+
+    #[test]
+    fn host_counters_come_from_proc() {
+        let route = "Iface\tDestination\tGateway\nwlp3s0\t0000A8C0\t00000000\nwlp3s0\t00000000\t0102A8C0\n";
+        assert_eq!(default_interface(route), Some("wlp3s0"));
+        assert_eq!(default_interface("Iface\tDestination\n"), None);
+        let dev = "Inter-|   Receive\n face |bytes packets\n    lo: 5 1 0 0 0 0 0 0 5 1 0 0 0 0 0 0\nwlp3s0: 1000 10 0 0 0 0 0 0 2000 20 0 0 0 0 0 0\n";
+        assert_eq!(interface_bytes(dev, "wlp3s0"), Some((1000, 2000)));
+        assert_eq!(interface_bytes(dev, "eth0"), None);
+        let stat = "cpu  100 0 100 600 200 0 0 0 0 0\ncpu0 1 2 3\n";
+        assert_eq!(cpu_seconds(stat), Some((2.0, 10.0)));
+        assert_eq!(cpu_seconds("intr 1 2\n"), None);
     }
 
     #[test]
