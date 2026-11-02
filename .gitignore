@@ -1,3 +1,8 @@
 .env
 __pycache__/
 rust/target/
+# Homepage needs these files; setup.sh makes them empty.
+config/homepage/bookmarks.yaml
+config/homepage/docker.yaml
+config/homepage/kubernetes.yaml
+config/homepage/proxmox.yaml

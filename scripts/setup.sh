@@ -28,6 +28,9 @@ S="$DATA/secrets"
 
 # Media folders stay readable by the apps; everything after this is private.
 mkdir -p "$MEDIA"/{music,video/movies,video/shows,downloads/qbittorrent}
+# Homepage does not start without these files, and its config folder is read-only to it.
+for f in docker kubernetes proxmox; do [ -e "config/homepage/$f.yaml" ] || echo '# Not used.' >"config/homepage/$f.yaml"; done
+[ -e config/homepage/bookmarks.yaml ] || echo '[]' >config/homepage/bookmarks.yaml
 umask 077
 # Not navidrome: it runs as root without capabilities, so Docker must make its folder.
 mkdir -p "$DATA"/{caddy,authelia,jellyfin/config,jellyfin/cache,seerr,status,secrets,prometheus,grafana}
