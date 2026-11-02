@@ -34,7 +34,7 @@ Your own Netflix and Spotify, running at home.
 
 ## Quick start
 
-Needs a Linux PC with Docker, a free Tailscale account and Rust. Install from the PC's main user account.
+Needs a Linux PC with Docker and a free Tailscale account. Install from the PC's main user account.
 
 ```sh
 cp .env.example .env    # your Tailscale name and folders
@@ -68,7 +68,7 @@ Then open `https://HOST` and sign in as `LAB_USER`.
 ### Video downloads
 
 1. Run `docker compose up -d sonarr radarr prowlarr qbittorrent`.
-2. Run `homelab configure-video-fetch`. It connects qBittorrent, Sonarr, Radarr and Prowlarr.
+2. Run `~/.cargo/bin/homelab configure-video-fetch`. It connects qBittorrent, Sonarr, Radarr and Prowlarr.
 3. In Prowlarr, add the indexers you want.
 
 ### Music downloads
@@ -81,12 +81,12 @@ To fetch some albums first, list them in `DATA/priority-albums.txt`, one `Artist
 
 1. Make an app at developer.spotify.com with the redirect URI `http://127.0.0.1:18080/callback`.
 2. Put its `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `DATA/secrets/spotify.env`.
-3. Run `homelab sync-spotify --auth`.
+3. Run `~/.cargo/bin/homelab sync-spotify --auth`.
 4. Run `./scripts/start-music-fetch.sh` again to turn on the daily sync.
 
 ### Subtitles
 
-After the video downloads, run `./scripts/setup-bazarr.sh`, then `homelab homepage-secrets && docker compose up -d homepage`.
+After the video downloads, run `./scripts/setup-bazarr.sh`, then `~/.cargo/bin/homelab homepage-secrets && docker compose up -d homepage`.
 
 ### Weekly discovery
 
@@ -112,4 +112,4 @@ Set `NOTIFY_CMD` in `.env`, for example to `notify-send`.
 
 ### After a code change
 
-Run `cargo install --locked --path rust`, then `systemctl --user restart homelab-lab-metrics`.
+Run `./scripts/install-homelab.sh`, then `systemctl --user restart homelab-lab-metrics`.

@@ -12,7 +12,7 @@ for v in HOST TS_IP DATA MEDIA LAB_USER; do
 done
 [ -z "${RENDER_DEVICE:-}" ] || [ -e "$RENDER_DEVICE" ] || { echo "No $RENDER_DEVICE: fix RENDER_DEVICE in .env (ls /dev/dri)."; exit 1; }
 [ -z "${RENDER_DEVICE:-}" ] || [ -n "${RENDER_GID:-}" ] || { echo "Set RENDER_GID in .env (getent group render)."; exit 1; }
-for tool in docker openssl cargo curl python3 script; do
+for tool in docker openssl curl python3 script; do
 	command -v "$tool" >/dev/null || { echo "Install $tool first."; exit 1; }
 done
 AUTHELIA="docker run --rm authelia/authelia:4.39.28 authelia"
@@ -65,7 +65,7 @@ else
 	echo "Ports 9090 or 3000 are taken: graphs not started (see README, Graphs)."
 fi
 
-cargo install --quiet --locked --path rust
+./scripts/install-homelab.sh
 mkdir -p ~/.config/systemd/user
 ln -sf "$PWD"/systemd/*.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload

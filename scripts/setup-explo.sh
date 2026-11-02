@@ -43,7 +43,7 @@ USE_SUBDIRECTORY=true
 EOF
 fi
 
-cargo install --quiet --locked --path rust # the timer runs ~/.cargo/bin/homelab discover
+./scripts/install-homelab.sh
 mkdir -p ~/.config/systemd/user
 ln -sf "$PWD"/systemd/homelab-discover.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload

@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source .env
-cargo install --quiet --locked --path rust  # the systemd units run ~/.cargo/bin/homelab
+./scripts/install-homelab.sh
 
 ./scripts/setup-music-fetch.sh
 docker compose up -d lidarr slskd soularr
