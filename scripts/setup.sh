@@ -1,20 +1,28 @@
 #!/usr/bin/env bash
 # First run on a new PC: folders, random secrets, the admin's lab login, the containers, and the
-# homelab binary with its systemd timers. Fill in .env first (copy .env.example). Safe to run
-# again: it keeps every secret and login that exists.
+# homelab binary with its systemd timers. The first run writes .env (see write-env.sh). Safe to
+# run again: it keeps every secret and login that exists.
 #   ./scripts/setup.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[ -f .env ] || { echo "Copy .env.example to .env and fill it in first."; exit 1; }
+# With sudo, .env would get root's home and name. Add yourself to the docker group instead.
+[ "$EUID" -ne 0 ] || { echo "Run this as your own user, not with sudo."; exit 1; }
+[ -f .env ] || ./scripts/write-env.sh
 source .env
 for v in HOST TS_IP DATA MEDIA LAB_USER; do
 	[ -n "${!v:-}" ] || { echo "Set $v in .env."; exit 1; }
 done
 [ -z "${RENDER_DEVICE:-}" ] || [ -e "$RENDER_DEVICE" ] || { echo "No $RENDER_DEVICE: fix RENDER_DEVICE in .env (ls /dev/dri)."; exit 1; }
 [ -z "${RENDER_DEVICE:-}" ] || [ -n "${RENDER_GID:-}" ] || { echo "Set RENDER_GID in .env (getent group render)."; exit 1; }
-for tool in docker openssl curl python3 script; do
+for tool in docker tailscale openssl curl python3 script; do
 	command -v "$tool" >/dev/null || { echo "Install $tool first."; exit 1; }
 done
+# Caddy gets the ts.net certificate from tailscaled, which gives one only with HTTPS turned on.
+if [ "${HOST_TLS:-tailscale}" = tailscale ] && ! tailscale status --json |
+	python3 -c 'import json, sys; sys.exit(sys.argv[1] not in (json.load(sys.stdin).get("CertDomains") or []))' "$HOST"; then
+	echo "Turn on HTTPS Certificates at https://login.tailscale.com/admin/dns, then run this again."
+	exit 1
+fi
 AUTHELIA="docker run --rm authelia/authelia:4.39.28 authelia"
 S="$DATA/secrets"
 

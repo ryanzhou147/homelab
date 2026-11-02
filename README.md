@@ -34,14 +34,13 @@ Your own Netflix and Spotify, running at home.
 
 ## Quick start
 
-Needs a Linux PC with Docker and a free Tailscale account. Install from the PC's main user account.
+Needs a Linux PC with Docker and Tailscale, signed in, with HTTPS Certificates turned on in the Tailscale admin. Install from the PC's main user account.
 
 ```sh
-cp .env.example .env    # your Tailscale name and folders
 ./scripts/setup.sh
 ```
 
-Then open `https://HOST` and sign in as `LAB_USER`.
+It writes `.env` with this PC's values, asks for a password, and prints the address to open.
 
 ## Features
 
