@@ -139,6 +139,11 @@ if [ "$(json 'd.get("initialized")' <<<"$public")" != True ]; then
 			"$SEERR/settings/jellyfin/library/$id"
 	done
 	curl -sf -o /dev/null "${jar[@]}" -X POST "$SEERR/settings/initialize"
+	# The public addresses, for Seerr's "Play on Jellyfin" links and the links in its messages.
+	curl -sf -o /dev/null "${jar[@]}" -X POST -H 'Content-Type: application/json' \
+		-d "{\"externalHostname\":\"https://$HOST$BASE\"}" "$SEERR/settings/jellyfin"
+	curl -sf -o /dev/null "${jar[@]}" -X POST -H 'Content-Type: application/json' \
+		-d "{\"applicationUrl\":\"https://${REQUESTS_HOST:-$HOST:5055}\"}" "$SEERR/settings/main"
 	echo "Seerr: set up with Jellyfin"
 fi
 echo "First run: done"
