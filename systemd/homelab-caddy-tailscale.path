@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart Caddy when tailscaled makes a new socket folder, so the ts.net certificate keeps working
+
+[Path]
+PathChanged=/run/tailscale/tailscaled.sock
+
+[Install]
+WantedBy=default.target

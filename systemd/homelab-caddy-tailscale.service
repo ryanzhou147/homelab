@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart Caddy so its /run/tailscale mount points at tailscaled's new folder
+
+[Service]
+Type=oneshot
+# The path first changes when the old folder goes away, and systemd drops changes made while this
+# runs, so wait here for the new socket. Nothing to do when tailscaled stays down or Caddy is off.
+ExecStart=/bin/sh -c 'for i in $(seq 60); do [ -S /run/tailscale/tailscaled.sock ] && break; sleep 1; done; [ -S /run/tailscale/tailscaled.sock ] || exit 0; docker ps -q --filter label=homelab.tailscale-cert | xargs -r docker restart'

@@ -13,6 +13,8 @@ services:
     build: config/caddy
     image: homelab-caddy:2.11.7
     network_mode: host
+    # homelab-caddy-tailscale.service finds Caddy by this label.
+    labels: [homelab.tailscale-cert=true]
     environment:
       HOST: ${HOST}
       HOST_TLS: ${HOST_TLS:-tailscale}
@@ -27,8 +29,8 @@ services:
       - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA}/caddy:/data
       - ${DATA}/sockets:/sockets
-      # The folder, not the socket: a tailscaled restart makes a new socket file, and a file mount
-      # keeps the old one, so Caddy would get no ts.net certificate.
+      # A tailscaled restart makes a new folder, and a mount keeps the old one, so Caddy would get
+      # no ts.net certificate; homelab-caddy-tailscale.path restarts Caddy to mount the new one.
       - /var/run/tailscale:/var/run/tailscale:ro
 
   # The home page: a card for each app with its live numbers (queue, download speed, streams).
