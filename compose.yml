@@ -27,7 +27,9 @@ services:
       - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA}/caddy:/data
       - ${DATA}/sockets:/sockets
-      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+      # The folder, not the socket: a tailscaled restart makes a new socket file, and a file mount
+      # keeps the old one, so Caddy would get no ts.net certificate.
+      - /var/run/tailscale:/var/run/tailscale:ro
 
   # The home page: a card for each app with its live numbers (queue, download speed, streams).
   # On the host network it calls the apps on the PC's 127.0.0.1 ports, as the fetch gate requires.
