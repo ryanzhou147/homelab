@@ -41,6 +41,36 @@ struct Job {
 
 type Jobs = Arc<Mutex<Vec<Job>>>;
 
+/// The running job, else the newest: a queued playlist must not hide the one downloading.
+fn current(list: &[Job]) -> Option<Job> {
+    (list.iter().find(|j| j.state == "running").or(list.last())).cloned()
+}
+
+/// A job as the home page's Music downloads card reads it: the same fields the old spotdl
+/// status file had, counted from the job's lines.
+fn status(job: Option<&Job>) -> Value {
+    let Some(job) = job else {
+        return json!({"running": false, "percent": 0, "done": 0, "total": 0, "failed": 0, "last": ""});
+    };
+    let count = |part: &str| job.lines.iter().filter(|l| l.contains(part)).count();
+    let progress = (job.lines.iter().rev())
+        .find_map(|l| l.strip_prefix('[')?.split_once(']')?.0.split_once('/'))
+        .and_then(|(i, n)| Some((i.parse::<usize>().ok()?, n.parse::<usize>().ok()?)));
+    let (searched, total) = progress.unwrap_or((0, 0));
+    json!({
+        "running": matches!(job.state, "queued" | "running"),
+        "percent": if total > 0 { searched * 100 / total } else if job.state == "done" { 100 } else { 0 },
+        "done": job.lines.iter().filter(|l| l.starts_with("filed: ")).count(),
+        "total": total,
+        "failed": count("] not found on Soulseek")
+            + count("] search failed")
+            + count("] could not queue")
+            + count("left out: ")
+            + job.lines.iter().filter(|l| l.starts_with("could not file ")).count(),
+        "last": job.title,
+    })
+}
+
 fn update(jobs: &Jobs, id: usize, f: impl FnOnce(&mut Job)) {
     if let Some(job) = jobs.lock().unwrap().iter_mut().find(|j| j.id == id) {
         f(job);
@@ -152,6 +182,15 @@ pub fn run(args: Args) -> Result<()> {
             (Method::Get, "/playlists" | "/playlists/") => {
                 let page = PAGE.replace("{LIMIT}", &LINK_LIMIT.to_string());
                 reply(req, 200, "text/html; charset=utf-8", page)
+            }
+            (Method::Get, "/playlists/status") => {
+                let latest = current(&jobs.lock().unwrap());
+                reply(
+                    req,
+                    200,
+                    "application/json",
+                    status(latest.as_ref()).to_string(),
+                )
             }
             (Method::Get, "/playlists/jobs") => {
                 let list = jobs
@@ -296,6 +335,54 @@ mod tests {
             req = req.with_header(Header::from_bytes("Origin", o).unwrap());
         }
         parse_add(&mut req.into())
+    }
+
+    #[test]
+    fn sums_up_the_newest_job_for_the_home_page() {
+        assert_eq!(status(None)["running"], false);
+        let job = Job {
+            id: 1,
+            title: "Fallout".into(),
+            state: "running",
+            lines: [
+                "Looking for 4 missing songs on Soulseek",
+                "[1/4] downloading: A",
+                "[2/4] not found on Soulseek: B",
+                "filed: A.flac",
+                "[3/4] downloading: C",
+            ]
+            .map(String::from)
+            .to_vec(),
+        };
+        let s = status(Some(&job));
+        assert_eq!(
+            (
+                s["running"].clone(),
+                s["percent"].clone(),
+                s["done"].clone()
+            ),
+            (json!(true), json!(75), json!(1))
+        );
+        assert_eq!(
+            (s["total"].clone(), s["failed"].clone(), s["last"].clone()),
+            (json!(4), json!(1), json!("Fallout"))
+        );
+    }
+
+    #[test]
+    fn shows_the_running_job_before_a_queued_one() {
+        let job = |id, state| Job {
+            id,
+            title: String::new(),
+            state,
+            lines: Vec::new(),
+        };
+        assert_eq!(
+            current(&[job(1, "running"), job(2, "queued")]).unwrap().id,
+            1
+        );
+        assert_eq!(current(&[job(1, "done"), job(2, "queued")]).unwrap().id, 2);
+        assert!(current(&[]).is_none());
     }
 
     #[test]
