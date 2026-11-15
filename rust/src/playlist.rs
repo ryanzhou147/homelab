@@ -264,14 +264,15 @@ pub fn add(playlist: &Playlist, log: &mut dyn FnMut(String)) -> Result<()> {
             seconds: s.seconds,
         })
         .collect();
-    let filed = soulseek::fetch(&wanted, log)?;
-    if filed > 0 {
-        log(format!(
-            "{filed} songs downloaded; Navidrome is scanning them"
-        ));
-        rescan(&navidrome)?;
-        save(&navidrome, playlist, &name, log)?;
-    }
+    let mut update = |log: &mut dyn FnMut(String)| {
+        log("New songs are in; Navidrome is scanning them".into());
+        if let Err(e) =
+            rescan(&navidrome).and_then(|()| save(&navidrome, playlist, &name, log).map(|_| ()))
+        {
+            log(format!("Could not update the playlist yet: {e:#}"));
+        }
+    };
+    let filed = soulseek::fetch(&wanted, log, &mut update)?;
     log(format!(
         "Done: {} of {} missing songs found",
         filed,

@@ -24,8 +24,12 @@ const SEARCH_GAP: Duration = Duration::from_secs(8);
 const SEARCH_WAIT: Duration = Duration::from_secs(45);
 const DOWNLOAD_WAIT: Duration = Duration::from_secs(30 * 60);
 const NOT_RUNNING: &str = "slskd is not running";
-static NOT_WORDS: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"\(.*?\)|\[.*?\]|\b(?:feat|ft)\..*|\s-\s.*|\S*\*\S*").unwrap());
+// The playlist is saved again after this many new songs, or after this long with any.
+const UPDATE_EVERY: usize = 5;
+const UPDATE_GAP: Duration = Duration::from_secs(5 * 60);
+static NOT_WORDS: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"\(.*?\)|\[.*?\]|\b(?:feat|ft)\..*|\s-\s.*|\S*\*\S*").unwrap()
+});
 static NOT_SEARCHABLE: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r"[^\w\s']").unwrap());
 
@@ -197,12 +201,71 @@ fn search_text(artist: &str, title: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// Searches, downloads and files each song; returns how many were filed. `log` gets one line
-/// per song. A failed search or download skips that song; a stopped slskd stops the job.
-pub fn fetch(songs: &[Wanted], log: &mut dyn FnMut(String)) -> Result<usize> {
+/// Whether to save the playlist again: some new songs, and enough of them, enough time, or the end.
+fn due(new_songs: usize, since_last: Duration, end: bool) -> bool {
+    new_songs > 0 && (end || new_songs >= UPDATE_EVERY || since_last >= UPDATE_GAP)
+}
+
+/// Runs when new songs are in the library; it gets the job's log.
+pub type OnFiled<'a> = dyn FnMut(&mut dyn FnMut(String)) + 'a;
+
+/// Moves the finished downloads among `queued` into the library; returns how many it moved.
+/// slskd keeps unfinished files in its own incomplete folder, so a file in `downloads` is done.
+fn file_finished(queued: &mut Vec<(String, String)>, log: &mut dyn FnMut(String)) -> usize {
     let downloads = media_dir().join("downloads/slskd");
     let library = media_dir().join("music/Soulseek singles");
+    let mut filed = 0;
+    queued.retain(|(artist, remote)| {
+        let src = local_path(&downloads, remote);
+        if !src.exists() {
+            return true;
+        }
+        // shortcut: a Soularr download with the same folder and file name would be taken too;
+        // rare, so not tracked by transfer id.
+        let dest = library.join(safe(artist));
+        let name = src.file_name().unwrap_or_default().to_owned();
+        if dest.join(&name).exists() {
+            log(format!(
+                "already in the library: {}",
+                name.to_string_lossy()
+            ));
+            return false;
+        }
+        match std::fs::create_dir_all(&dest).and_then(|()| std::fs::rename(&src, dest.join(&name)))
+        {
+            Ok(()) => {
+                filed += 1;
+                log(format!("filed: {}", name.to_string_lossy()));
+            }
+            Err(e) => log(format!("could not file {}: {e}", src.display())),
+        }
+        false
+    });
+    filed
+}
+
+/// Searches, downloads and files each song; returns how many were filed. Songs go into the
+/// library as their downloads finish, and `on_filed` runs after every few of them (and at the
+/// end), so the playlist fills while the search goes on. `log` gets one line per song. A failed
+/// search or download skips that song; a stopped slskd stops the job.
+pub fn fetch(
+    songs: &[Wanted],
+    log: &mut dyn FnMut(String),
+    on_filed: &mut OnFiled,
+) -> Result<usize> {
     let mut queued = Vec::new();
+    let (mut filed, mut unannounced, mut last_update) = (0, 0, Instant::now());
+    let mut collect =
+        |queued: &mut Vec<(String, String)>, log: &mut dyn FnMut(String), force: bool| {
+            let new = file_finished(queued, log);
+            filed += new;
+            unannounced += new;
+            if due(unannounced, last_update.elapsed(), force) {
+                on_filed(log);
+                unannounced = 0;
+                last_update = Instant::now();
+            }
+        };
     for (i, song) in songs.iter().enumerate() {
         let artist = song.artists.first().map_or("", String::as_str);
         let text = search_text(artist, song.title);
@@ -211,56 +274,36 @@ pub fn fetch(songs: &[Wanted], log: &mut dyn FnMut(String)) -> Result<usize> {
             Ok(Some((user, file))) => {
                 let body = json!([{"filename": file["filename"], "size": file["size"]}]);
                 let path = format!("/transfers/downloads/{}", crate::text::quote(&user, ""));
+                let remote = file["filename"].as_str().unwrap_or("").to_string();
                 match call("POST", &path, Some(body)) {
                     Ok(_) => {
                         log(format!("{n} downloading: {text}"));
-                        let remote = file["filename"].as_str().unwrap_or("").to_string();
+                        queued.push((artist.to_string(), remote));
+                    }
+                    // An earlier job queued the same file; it still arrives, so wait for it.
+                    Err(e) if e.to_string().contains("HTTP 409") => {
+                        log(format!("{n} already downloading: {text}"));
                         queued.push((artist.to_string(), remote));
                     }
                     Err(e) => log(format!("{n} could not queue {text}: {e}")),
                 }
             }
             Ok(None) => log(format!("{n} not found on Soulseek: {text}")),
-            Err(e) if e.to_string().starts_with(NOT_RUNNING) => return Err(e),
+            Err(e) if e.to_string().starts_with(NOT_RUNNING) => {
+                collect(&mut queued, log, true);
+                return Err(e);
+            }
             Err(e) => log(format!("{n} search failed for {text}: {e}")),
         }
         sleep(SEARCH_GAP);
+        collect(&mut queued, log, false);
     }
     let start = Instant::now();
-    let mut filed = 0;
     while !queued.is_empty() && start.elapsed() < DOWNLOAD_WAIT {
-        queued.retain(|(artist, remote)| {
-            // slskd keeps unfinished files in its own incomplete folder, so a file here is done.
-            let src = local_path(&downloads, remote);
-            if !src.exists() {
-                return true;
-            }
-            // shortcut: a Soularr download with the same folder and file name would be taken too;
-            // rare, so not tracked by transfer id.
-            let dest = library.join(safe(artist));
-            let name = src.file_name().unwrap_or_default().to_owned();
-            if dest.join(&name).exists() {
-                log(format!(
-                    "already in the library: {}",
-                    name.to_string_lossy()
-                ));
-                return false;
-            }
-            match std::fs::create_dir_all(&dest)
-                .and_then(|()| std::fs::rename(&src, dest.join(&name)))
-            {
-                Ok(()) => {
-                    filed += 1;
-                    log(format!("filed: {}", name.to_string_lossy()));
-                }
-                Err(e) => log(format!("could not file {}: {e}", src.display())),
-            }
-            false
-        });
-        if !queued.is_empty() {
-            sleep(Duration::from_secs(20));
-        }
+        sleep(Duration::from_secs(20));
+        collect(&mut queued, log, false);
     }
+    collect(&mut queued, log, true);
     for (_, remote) in &queued {
         log(format!(
             "still downloading after 30 min, left out: {remote}"
@@ -341,10 +384,15 @@ mod tests {
             search_text("Alesso", "Heroes (we could be)"),
             "Alesso Heroes"
         );
-        assert_eq!(
-            search_text("AC/DC", "T.N.T. - Remastered"),
-            "AC DC T N T"
-        );
+        assert_eq!(search_text("AC/DC", "T.N.T. - Remastered"), "AC DC T N T");
+    }
+
+    #[test]
+    fn updates_the_playlist_every_few_songs_or_minutes() {
+        let minute = Duration::from_secs(60);
+        assert!(!due(0, 10 * minute, true));
+        assert!(!due(2, minute, false));
+        assert!(due(2, minute, true) && due(5, minute, false) && due(1, 5 * minute, false));
     }
 
     #[test]
