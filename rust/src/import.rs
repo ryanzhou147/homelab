@@ -58,7 +58,12 @@ pub fn csv_files(folder: &Path) -> Vec<PathBuf> {
 /// The rows of a CSV file as header to value maps, like csv.DictReader with utf-8-sig.
 pub fn csv_rows(path: &Path) -> Result<Vec<HashMap<String, String>>> {
     let text = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
-    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    csv_text_rows(&text)
+}
+
+/// The rows of a CSV text, keyed by its header line.
+pub fn csv_text_rows(text: &str) -> Result<Vec<HashMap<String, String>>> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut reader = csv::ReaderBuilder::new()
         .flexible(true)
         .from_reader(text.as_bytes());

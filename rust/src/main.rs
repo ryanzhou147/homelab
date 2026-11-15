@@ -15,7 +15,9 @@ mod merge_id3;
 mod merge_tags;
 mod metrics;
 mod navidrome;
+mod playlist;
 mod recent;
+mod soulseek;
 mod spotdl_album;
 mod spotify;
 mod status;
@@ -61,6 +63,8 @@ enum Command {
     DiskGuard(disk_guard::Args),
     /// Get this week's ListenBrainz recommendations into Navidrome with Explo.
     Discover(discover::Args),
+    /// Add a Spotify playlist (public link or Exportify CSV) to Navidrome, fetching missing songs.
+    AddPlaylist(playlist::Args),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -79,5 +83,6 @@ fn main() -> anyhow::Result<()> {
         Command::FillLoop(a) => fill_loop::run(a),
         Command::DiskGuard(a) => disk_guard::run(a),
         Command::Discover(a) => discover::run(a),
+        Command::AddPlaylist(a) => playlist::run(a),
     }
 }
