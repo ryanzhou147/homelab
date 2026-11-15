@@ -266,11 +266,11 @@ pub fn add(playlist: &Playlist, log: &mut dyn FnMut(String)) -> Result<()> {
         .collect();
     let mut update = |log: &mut dyn FnMut(String)| {
         log("New songs are in; Navidrome is scanning them".into());
-        if let Err(e) =
-            rescan(&navidrome).and_then(|()| save(&navidrome, playlist, &name, log).map(|_| ()))
-        {
+        let result = rescan(&navidrome).and_then(|()| save(&navidrome, playlist, &name, log));
+        if let Err(e) = &result {
             log(format!("Could not update the playlist yet: {e:#}"));
         }
+        result.is_ok()
     };
     let filed = soulseek::fetch(&wanted, log, &mut update)?;
     log(format!(

@@ -207,7 +207,8 @@ fn due(new_songs: usize, since_last: Duration, end: bool) -> bool {
 }
 
 /// Runs when new songs are in the library; it gets the job's log.
-pub type OnFiled<'a> = dyn FnMut(&mut dyn FnMut(String)) + 'a;
+/// It returns false when the update failed, so the next one tries again.
+pub type OnFiled<'a> = dyn FnMut(&mut dyn FnMut(String)) -> bool + 'a;
 
 /// Moves the finished downloads among `queued` into the library; returns how many it moved.
 /// slskd keeps unfinished files in its own incomplete folder, so a file in `downloads` is done.
@@ -218,6 +219,12 @@ fn file_finished(queued: &mut Vec<(String, String)>, log: &mut dyn FnMut(String)
     queued.retain(|(artist, remote)| {
         let src = local_path(&downloads, remote);
         if !src.exists() {
+            // An earlier job filed it (a 409 for a file that is done): nothing to wait for.
+            let done = src.file_name().map(|n| library.join(safe(artist)).join(n));
+            if done.as_ref().is_some_and(|d| d.exists()) {
+                log(format!("already in the library: {}", src.display()));
+                return false;
+            }
             return true;
         }
         // shortcut: a Soularr download with the same folder and file name would be taken too;
@@ -261,8 +268,9 @@ pub fn fetch(
             filed += new;
             unannounced += new;
             if due(unannounced, last_update.elapsed(), force) {
-                on_filed(log);
-                unannounced = 0;
+                // After a failure keep one, so the end of the job tries again; the next try waits
+                // for a few more songs or the time gap instead of following every song.
+                unannounced = if on_filed(log) { 0 } else { 1 };
                 last_update = Instant::now();
             }
         };
