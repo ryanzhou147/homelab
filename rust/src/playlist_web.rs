@@ -240,7 +240,7 @@ ol { margin:8px 0 0; padding-left:20px; font-size:14px; color:var(--muted); max-
   <div class="row"><input id="link" type="url" placeholder="https://open.spotify.com/playlist/..." autocomplete="off"><button id="add-link">Add</button></div>
   <div class="hint">Works for any public playlist, Spotify's own too. Reads the first {LIMIT} songs.</div>
   <div class="or">or</div>
-  <label for="file">Exportify CSV (for over 100 songs)</label>
+  <label for="file">Exportify CSV (for over {LIMIT} songs)</label>
   <div class="row"><input id="file" type="file" accept=".csv,text/csv"><button id="add-file">Add</button></div>
   <div class="hint">Export the playlist at exportify.app, then pick the file here.</div>
   <div id="msg" role="status"></div>

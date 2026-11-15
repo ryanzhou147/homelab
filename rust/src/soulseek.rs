@@ -25,7 +25,7 @@ const SEARCH_WAIT: Duration = Duration::from_secs(45);
 const DOWNLOAD_WAIT: Duration = Duration::from_secs(30 * 60);
 const NOT_RUNNING: &str = "slskd is not running";
 static NOT_WORDS: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"\(.*?\)|\[.*?\]|\b(?:feat|ft)\..*|\S*\*\S*").unwrap());
+    LazyLock::new(|| regex::Regex::new(r"\(.*?\)|\[.*?\]|\b(?:feat|ft)\..*|\s-\s.*|\S*\*\S*").unwrap());
 static NOT_SEARCHABLE: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r"[^\w\s']").unwrap());
 
@@ -333,6 +333,8 @@ mod tests {
 
     #[test]
     fn searches_for_the_main_artist_and_title() {
+        let text = search_text("The Beatles", "Hey Jude - Remastered 2015");
+        assert_eq!(text, "The Beatles Hey Jude");
         let text = search_text("JID", "Wholeheartedly (with Ty Dolla $ign & 6LACK)");
         assert_eq!(text, "JID Wholeheartedly");
         assert_eq!(
@@ -341,7 +343,7 @@ mod tests {
         );
         assert_eq!(
             search_text("AC/DC", "T.N.T. - Remastered"),
-            "AC DC T N T Remastered"
+            "AC DC T N T"
         );
     }
 
