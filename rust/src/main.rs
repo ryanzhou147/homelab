@@ -16,6 +16,7 @@ mod merge_tags;
 mod metrics;
 mod navidrome;
 mod playlist;
+mod playlist_web;
 mod recent;
 mod soulseek;
 mod spotdl_album;
@@ -65,6 +66,8 @@ enum Command {
     Discover(discover::Args),
     /// Add a Spotify playlist (public link or Exportify CSV) to Navidrome, fetching missing songs.
     AddPlaylist(playlist::Args),
+    /// Serve the Playlists page on 127.0.0.1:9103 for the lab at /playlists.
+    PlaylistWeb(playlist_web::Args),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -84,5 +87,6 @@ fn main() -> anyhow::Result<()> {
         Command::DiskGuard(a) => disk_guard::run(a),
         Command::Discover(a) => discover::run(a),
         Command::AddPlaylist(a) => playlist::run(a),
+        Command::PlaylistWeb(a) => playlist_web::run(a),
     }
 }

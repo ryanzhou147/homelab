@@ -97,6 +97,11 @@
               items: subsonic-response.albumList2.album
               name: name
               label: artist
+    - Playlists:
+        icon: spotify.svg
+        href: https://{{HOMEPAGE_VAR_HOST}}/playlists/
+        description: Add a Spotify playlist
+        siteMonitor: http://127.0.0.1:9103/playlists/
     - Lidarr:
         icon: lidarr.svg
         href: https://{{HOMEPAGE_VAR_HOST}}/lidarr/

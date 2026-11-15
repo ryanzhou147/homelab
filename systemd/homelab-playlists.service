@@ -1,0 +1,10 @@
+[Unit]
+Description=The Playlists page (add a Spotify playlist) on 127.0.0.1:9103, served at /playlists
+
+[Service]
+ExecStart=%h/.cargo/bin/homelab playlist-web
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -27,7 +27,7 @@ Your own Netflix and Spotify, running at home.
 - Watch and listen on your phone or laptop, from anywhere with an internet connection
 - One login for every app
 - Request a show or movie from your phone: it downloads, files itself and gets subtitles
-- Spotify playlists and Liked Songs sync to Navidrome, and missing songs download
+- Spotify playlists and Liked Songs sync to Navidrome, and missing songs download; paste any public playlist link at `/playlists`
 - A home page with live downloads, new episodes and graphs
 - One Rust binary for the sync, downloads, disk guard and metrics
 - LUKS2 encryption (AES-256, Argon2id) of logins, keys and databases, behind one master password

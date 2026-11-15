@@ -112,6 +112,10 @@
 	handle /slskd* {
 		import admin 127.0.0.1:5030
 	}
+	# Add a Spotify playlist: it writes playlists and starts downloads, so admins only.
+	handle /playlists* {
+		import admin 127.0.0.1:9103
+	}
 	# TV fetchers, the same way: no login of their own behind the admin check.
 	handle /sonarr* {
 		import admin 127.0.0.1:8989
