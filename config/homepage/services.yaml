@@ -142,10 +142,8 @@
         icon: spotify.svg
         widget:
           type: customapi
-          # Homepage serves the file itself; its Host check wants the lab's name.
-          url: http://127.0.0.2:3010/status/downloads.json
-          headers:
-            Host: "{{HOMEPAGE_VAR_HOST}}"
+          # The running (else newest) job on the Playlists page.
+          url: http://127.0.0.1:9103/playlists/status
           refreshInterval: 30000
           display: list
           mappings:
@@ -157,7 +155,7 @@
                 - any: true
                   to: Idle
             - field: percent
-              label: Progress
+              label: Searched
               suffix: "%"
             - field: done
               label: Downloaded
@@ -167,7 +165,7 @@
             - field: failed
               label: Not found
             - field: last
-              label: Last song
+              label: Playlist
 
 - Download:
     - qBittorrent:
