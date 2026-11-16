@@ -22,6 +22,7 @@ const MAX_LENGTH_GAP_S: u64 = 15;
 // Searches are spaced out so the Soulseek server does not throttle the account.
 const SEARCH_GAP: Duration = Duration::from_secs(8);
 const SEARCH_WAIT: Duration = Duration::from_secs(45);
+const RETRY_GAP: Duration = Duration::from_secs(60);
 const DOWNLOAD_WAIT: Duration = Duration::from_secs(30 * 60);
 const NOT_RUNNING: &str = "slskd is not running";
 // The playlist is saved again after this many new songs, or after this long with any.
@@ -147,7 +148,22 @@ fn call(method: &str, path: &str, body: Option<Value>) -> Result<Value> {
     })
 }
 
-fn search(text: &str) -> Result<Vec<Value>> {
+/// One search, and one more after a pause when it gets no answers: the Soulseek server sometimes
+/// answers nothing for a short time when many searches come close together.
+fn search(text: &str, log: &mut dyn FnMut(String)) -> Result<Vec<Value>> {
+    let found = search_once(text)?;
+    if !found.is_empty() {
+        return Ok(found);
+    }
+    log(format!(
+        "no answers for {text}, trying again in {} s",
+        RETRY_GAP.as_secs()
+    ));
+    sleep(RETRY_GAP);
+    search_once(text)
+}
+
+fn search_once(text: &str) -> Result<Vec<Value>> {
     let id = call("POST", "/searches", Some(json!({"searchText": text})))?["id"]
         .as_str()
         .context("slskd gave no search id")?
@@ -278,7 +294,7 @@ pub fn fetch(
         let artist = song.artists.first().map_or("", String::as_str);
         let text = search_text(artist, song.title);
         let n = format!("[{}/{}]", i + 1, songs.len());
-        match search(&text).map(|r| best_match(song, &r)) {
+        match search(&text, log).map(|r| best_match(song, &r)) {
             Ok(Some((user, file))) => {
                 let body = json!([{"filename": file["filename"], "size": file["size"]}]);
                 let path = format!("/transfers/downloads/{}", crate::text::quote(&user, ""));
