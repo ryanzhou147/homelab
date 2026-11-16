@@ -8,6 +8,12 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
+use lofty::config::{ParseOptions, WriteOptions};
+use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::flac::FlacFile;
+use lofty::ogg::tag::VorbisComments;
+use lofty::ogg::{OpusFile, VorbisFile};
+use lofty::tag::{Accessor, ItemKey, Tag, TagExt};
 use serde_json::{Value, json};
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::is_combining_mark;
@@ -28,6 +34,7 @@ const NOT_RUNNING: &str = "slskd is not running";
 // The playlist is saved again after this many new songs, or after this long with any.
 const UPDATE_EVERY: usize = 5;
 const UPDATE_GAP: Duration = Duration::from_secs(5 * 60);
+static DIGITS: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"\d+").unwrap());
 static NOT_WORDS: LazyLock<regex::Regex> = LazyLock::new(|| {
     regex::Regex::new(r"\(.*?\)|\[.*?\]|\b(?:feat|ft)\..*|\s-\s.*|\S*\*\S*").unwrap()
 });
@@ -78,6 +85,27 @@ fn score(song: &Wanted, file: &Value) -> Option<f64> {
     }
     let artist: Vec<String> = song.artists.iter().flat_map(|a| words(a)).collect();
     if !artist.is_empty() && !artist.iter().any(|w| path_words.contains(w)) {
+        return None;
+    }
+    // "Butcher Pete Pt. 1" is not Pt. 2: every number of the title must be in the name too.
+    let numbers = |s: &str| {
+        DIGITS
+            .find_iter(s)
+            .map(|m| m.as_str().to_string())
+            .collect::<Vec<_>>()
+    };
+    // The file name only: a "Disc 2" folder says nothing about the part.
+    // shortcut: a leading track number ("2 - Butcher Pete Pt. 1.flac") still passes for Pt. 2;
+    // stripping it would reject "99 Problems.flac". Upgrade if a wrong part shows up.
+    let have = numbers(base);
+    if !numbers(&NOT_WORDS.replace_all(song.title, ""))
+        .iter()
+        .all(|n| have.contains(n))
+    {
+        return None;
+    }
+    // "Atom Bomb Baby - Instrumental.flac" is not the song asked for, whatever its quality.
+    if crate::text::other_version(base, song.title) {
         return None;
     }
     let kbps = file["bitRate"].as_u64().unwrap_or(0);
@@ -226,25 +254,84 @@ fn due(new_songs: usize, since_last: Duration, end: bool) -> bool {
 /// It returns false when the update failed, so the next one tries again.
 pub type OnFiled<'a> = dyn FnMut(&mut dyn FnMut(String)) -> bool + 'a;
 
+/// Sets the title and artist to the requested song's. Peers' tags are often wrong or empty
+/// ("Time Life", "Various Artists"), and Navidrome matches the playlist by these tags.
+/// FLAC, OGG and Opus go through their own types: lofty's generic tag drops every Vorbis key it
+/// does not know ("ALBUM ARTIST", "TOTALTRACKS", MusicBrainz keys) when it saves.
+fn write_tags(path: &Path, song: &Wanted) -> Result<()> {
+    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase());
+    let open = || -> Result<std::fs::File> { Ok(std::fs::File::open(path)?) };
+    let save = WriteOptions::default();
+    match ext.as_deref() {
+        Some("flac") => {
+            let mut f = FlacFile::read_from(&mut open()?, ParseOptions::new())?;
+            if f.vorbis_comments().is_none() {
+                f.set_vorbis_comments(VorbisComments::default());
+            }
+            set_comments(f.vorbis_comments_mut().context("no comments")?, song);
+            f.save_to_path(path, save)?;
+        }
+        Some("ogg") => {
+            let mut f = VorbisFile::read_from(&mut open()?, ParseOptions::new())?;
+            set_comments(f.vorbis_comments_mut(), song);
+            f.save_to_path(path, save)?;
+        }
+        Some("opus") => {
+            let mut f = OpusFile::read_from(&mut open()?, ParseOptions::new())?;
+            set_comments(f.vorbis_comments_mut(), song);
+            f.save_to_path(path, save)?;
+        }
+        _ => {
+            let mut file = lofty::read_from_path(path)?;
+            if file.primary_tag().is_none() {
+                file.insert_tag(Tag::new(file.primary_tag_type()));
+            }
+            let tag = file.primary_tag_mut().context("no tag")?;
+            tag.set_title(song.title.to_string());
+            tag.set_artist(song.artists.join("; "));
+            tag.remove_key(ItemKey::TrackArtists);
+            tag.save_to_path(path, save)?;
+        }
+    }
+    Ok(())
+}
+
+fn set_comments(comments: &mut VorbisComments, song: &Wanted) {
+    comments.insert("TITLE".into(), song.title.to_string());
+    comments.insert("ARTIST".into(), song.artists.join("; "));
+    // Navidrome takes ARTISTS over ARTIST, so a peer's stale one would still name the artist.
+    comments.remove("ARTISTS").for_each(drop);
+}
+
 /// Moves the finished downloads among `queued` into the library; returns how many it moved.
 /// slskd keeps unfinished files in its own incomplete folder, so a file in `downloads` is done.
-fn file_finished(queued: &mut Vec<(String, String)>, log: &mut dyn FnMut(String)) -> usize {
+fn file_finished(queued: &mut Vec<(&Wanted, String)>, log: &mut dyn FnMut(String)) -> usize {
     let downloads = media_dir().join("downloads/slskd");
     let library = media_dir().join("music/Soulseek singles");
     let mut filed = 0;
-    queued.retain(|(artist, remote)| {
+    // Tagged again too when already filed: an earlier job may have filed it with a peer's tags.
+    let tag = |path: &Path, song: &Wanted, log: &mut dyn FnMut(String)| {
+        if let Err(e) = write_tags(path, song) {
+            log(format!("could not tag {}: {e:#}", path.display()));
+        }
+    };
+    queued.retain(|(song, remote)| {
+        let artist = song.artists.first().map_or("", String::as_str);
         let src = local_path(&downloads, remote);
         if !src.exists() {
             // An earlier job filed it (a 409 for a file that is done): nothing to wait for.
             let done = src.file_name().map(|n| library.join(safe(artist)).join(n));
-            if done.as_ref().is_some_and(|d| d.exists()) {
+            if let Some(done) = done.filter(|d| d.exists()) {
                 log(format!("already in the library: {}", src.display()));
+                tag(&done, song, log);
+                filed += 1;
                 return false;
             }
             return true;
         }
-        // shortcut: a Soularr download with the same folder and file name would be taken too;
-        // rare, so not tracked by transfer id.
+        // shortcut: a Soularr download with the same folder and file name would be taken too,
+        // and two songs whose peer files share a name ("01.flac") look filed, so the retag can
+        // mislabel one; rare, so not tracked by transfer id. Upgrade: name files after the title.
         let dest = library.join(safe(artist));
         let name = src.file_name().unwrap_or_default().to_owned();
         if dest.join(&name).exists() {
@@ -252,8 +339,12 @@ fn file_finished(queued: &mut Vec<(String, String)>, log: &mut dyn FnMut(String)
                 "already in the library: {}",
                 name.to_string_lossy()
             ));
+            tag(&dest.join(&name), song, log);
+            filed += 1;
             return false;
         }
+        // Tagged before the move, so a write that fails halfway never harms a library file.
+        tag(&src, song, log);
         match std::fs::create_dir_all(&dest).and_then(|()| std::fs::rename(&src, dest.join(&name)))
         {
             Ok(()) => {
@@ -279,7 +370,7 @@ pub fn fetch(
     let mut queued = Vec::new();
     let (mut filed, mut unannounced, mut last_update) = (0, 0, Instant::now());
     let mut collect =
-        |queued: &mut Vec<(String, String)>, log: &mut dyn FnMut(String), force: bool| {
+        |queued: &mut Vec<(&Wanted, String)>, log: &mut dyn FnMut(String), force: bool| {
             let new = file_finished(queued, log);
             filed += new;
             unannounced += new;
@@ -302,12 +393,12 @@ pub fn fetch(
                 match call("POST", &path, Some(body)) {
                     Ok(_) => {
                         log(format!("{n} downloading: {text}"));
-                        queued.push((artist.to_string(), remote));
+                        queued.push((song, remote));
                     }
                     // An earlier job queued the same file; it still arrives, so wait for it.
                     Err(e) if e.to_string().contains("HTTP 409") => {
                         log(format!("{n} already downloading: {text}"));
-                        queued.push((artist.to_string(), remote));
+                        queued.push((song, remote));
                     }
                     Err(e) => log(format!("{n} could not queue {text}: {e}")),
                 }
@@ -340,6 +431,69 @@ pub fn fetch(
 mod tests {
     use super::*;
 
+    #[test]
+    fn write_tags_keeps_flac_keys_lofty_does_not_know() {
+        // A FLAC with only STREAMINFO (44.1 kHz, stereo, 16 bit) and a peer's comments.
+        let mut info = vec![0x10, 0, 0x10, 0, 0, 0, 0, 0, 0, 0];
+        info.extend((44100u64 << 44 | 1 << 41 | 15 << 36).to_be_bytes());
+        info.extend([0; 16]);
+        let flac = [b"fLaC".as_slice(), &[0x80, 0, 0, 34], &info].concat();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Rocket 69.flac");
+        std::fs::write(&path, flac).unwrap();
+        let mut f = FlacFile::read_from(
+            &mut std::fs::File::open(&path).unwrap(),
+            ParseOptions::new(),
+        )
+        .unwrap();
+        let mut peer = VorbisComments::default();
+        peer.insert("ALBUM ARTIST".into(), "Todd Rhodes".into());
+        peer.insert("ARTISTS".into(), "Connie Allen".into());
+        f.set_vorbis_comments(peer);
+        f.save_to_path(&path, WriteOptions::default()).unwrap();
+
+        let artists = ["Todd Rhodes".to_string(), "Connie Allen".to_string()];
+        write_tags(
+            &path,
+            &Wanted {
+                title: "Rocket 69",
+                artists: &artists,
+                seconds: 0,
+            },
+        )
+        .unwrap();
+        let f = FlacFile::read_from(
+            &mut std::fs::File::open(&path).unwrap(),
+            ParseOptions::new(),
+        )
+        .unwrap();
+        let c = f.vorbis_comments().unwrap();
+        assert_eq!(c.get("ALBUM ARTIST"), Some("Todd Rhodes"));
+        assert_eq!(c.get("ARTIST"), Some("Todd Rhodes; Connie Allen"));
+        assert_eq!(c.get("TITLE"), Some("Rocket 69"));
+        assert_eq!(c.get("ARTISTS"), None);
+    }
+
+    #[test]
+    fn write_tags_sets_an_untagged_mp3s_artist() {
+        use crate::merge_tags::tests::{mp3, talb};
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Jingle Jangle Jingle.mp3");
+        mp3(&path, vec![talb("Time Life")]);
+        let artists = ["Kay Kyser & His Orchestra".to_string()];
+        let wanted = Wanted {
+            title: "(I Got Spurs That) Jingle Jangle Jingle",
+            artists: &artists,
+            seconds: 0,
+        };
+        write_tags(&path, &wanted).unwrap();
+        let file = lofty::read_from_path(&path).unwrap();
+        let tag = file.primary_tag().unwrap();
+        assert_eq!(tag.artist().as_deref(), Some("Kay Kyser & His Orchestra"));
+        assert_eq!(tag.title().as_deref(), Some(wanted.title));
+        assert_eq!(tag.album().as_deref(), Some("Time Life"));
+    }
+
     fn song<'a>(artists: &'a [String]) -> Wanted<'a> {
         Wanted {
             title: "Third Eye Sh*t",
@@ -358,6 +512,16 @@ mod tests {
         let flac =
             json!({"filename": r"Music\Joey Bada$$ - 1999\05 Third Eye Shit.flac", "length": 201});
         let long = json!({"filename": r"Music\Joey Bada$$ - 1999\05 Third Eye Shit.mp3", "bitRate": 320, "length": 400});
+        let pt = Wanted {
+            title: "Butcher Pete, Pt. 2",
+            artists: &artists,
+            seconds: 0,
+        };
+        let pt1 = json!({"filename": r"Music\Joey Bada$$\Butcher Pete Pt. 1.flac"});
+        let pt2 = json!({"filename": r"Music\Joey Bada$$\03 Butcher Pete Pt. 2.flac"});
+        assert!(score(&pt, &pt1).is_none() && score(&pt, &pt2).is_some());
+        let karaoke = json!({"filename": r"Music\Joey Bada$$\Third Eye Shit (Instrumental).flac", "length": 201});
+        assert!(score(&s, &karaoke).is_none());
         assert!(score(&s, &good).is_some());
         assert!(
             score(&s, &low).is_none() && score(&s, &wrong).is_none() && score(&s, &long).is_none()

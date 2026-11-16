@@ -60,7 +60,9 @@ fn status(job: Option<&Job>) -> Value {
     json!({
         "running": matches!(job.state, "queued" | "running"),
         "percent": if total > 0 { searched * 100 / total } else if job.state == "done" { 100 } else { 0 },
-        "done": job.lines.iter().filter(|l| l.starts_with("filed: ")).count(),
+        "done": (job.lines.iter())
+            .filter(|l| l.starts_with("filed: ") || l.starts_with("already in the library: "))
+            .count(),
         "total": total,
         "failed": count("] not found on Soulseek")
             + count("] search failed")
