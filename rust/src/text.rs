@@ -26,6 +26,37 @@ static NOT_WORD: LazyLock<Regex> =
 // All parenthetical annotations, for the stem comparison only. Dash tags are NOISE's job.
 static ALL_PARENS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\s*[\(\[][^\)\]]*[\)\]]?").unwrap());
+// A " - ..." tail that only says where a song was used ("- As Heard on Fallout", "- From the
+// Film"). Other tails can name another track ("Savior - Interlude"), so they stay; remaster,
+// live and version tails are NOISE's job.
+static DASH_TAIL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)\s+[-\u{2013}\u{2014}]\s+(as heard|from\b|[^-\u{2013}\u{2014}]*\bsoundtrack\b).*$",
+    )
+    .unwrap()
+});
+
+// Words that name another recording of a song.
+static OTHER_VERSION: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)\b(slowed|sped|reverb|remix|mix|extended|cover|acoustic|instrumental|nightcore|karaoke|demo)\b",
+    )
+    .unwrap()
+});
+
+/// Whether `name` has a version word ("remix", "instrumental") that `title` lacks.
+pub fn other_version(name: &str, title: &str) -> bool {
+    let title = title.to_lowercase();
+    OTHER_VERSION
+        .find_iter(name)
+        .any(|m| !title.contains(&m.as_str().to_lowercase()))
+}
+
+/// A title without any (..), [..] or " - As Heard on ..." part: what a library file's tag usually has.
+pub fn title_stem(title: &str) -> String {
+    let title = ALL_PARENS.replace_all(title, "");
+    DASH_TAIL.replace(&title, "").trim().to_string()
+}
 
 /// Python's str.isspace.
 fn is_space(c: char) -> bool {
@@ -54,8 +85,8 @@ pub fn similar(a: &str, b: &str) -> f64 {
     let base = ratio(&normalize(&a), &normalize(&b));
     // "(feat. Drake)", "(PMEDIA)" or "(Deluxe)" on one side only lowers the ratio without a
     // real mismatch, so equal stems with all parens stripped get a boost.
-    let sa = normalize(&ALL_PARENS.replace_all(&a, ""));
-    let sb = normalize(&ALL_PARENS.replace_all(&b, ""));
+    let sa = normalize(&title_stem(&a));
+    let sb = normalize(&title_stem(&b));
     if !sa.is_empty() && sa == sb {
         base.max(0.95)
     } else {

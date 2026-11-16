@@ -193,7 +193,7 @@ fn save<'a>(
     let mut ids = Vec::new();
     let mut missing = Vec::new();
     for song in &playlist.songs {
-        match navidrome.find(&song.track)? {
+        match navidrome.find_track(&song.track)? {
             Some(id) => {
                 if seen.insert(id.clone()) {
                     ids.push(id);

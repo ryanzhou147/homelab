@@ -1,7 +1,9 @@
 //! The Subsonic API of Navidrome, signed with a salted token so the password never travels.
 
 use crate::spotify::Track;
-use crate::text::{MATCH_THRESHOLD, normalize, py_repr, similar, similar_plain, urlencode};
+use crate::text::{
+    MATCH_THRESHOLD, normalize, py_repr, similar, similar_plain, title_stem, urlencode,
+};
 use anyhow::{Result, anyhow, bail};
 use md5::{Digest, Md5};
 use regex::Regex;
@@ -14,7 +16,7 @@ const SEARCH_RESULTS: &str = "20";
 const PLAYLIST_CHUNK: usize = 200;
 // Tags join artists with " / " (ID3v2.3), "feat.", "•", "&" or ",".
 static ARTIST_SEPARATORS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\s*/\s*|\s+(?:feat\.?|ft\.|featuring|with|x)\s+|\s*[•&,;]\s*").unwrap()
+    Regex::new(r"(?i)\s*/\s*|\s+(?:feat\.?|ft\.|featuring|with|x|and)\s+|\s*[•&,;]\s*").unwrap()
 });
 
 /// A blocking HTTP agent with the scripts' 30 s timeout. HTTP errors come back as replies, so
@@ -84,9 +86,12 @@ impl Navidrome {
         let artist = track
             .artists
             .first()
-            .map(|a| normalize(a))
+            // The first name only: "Bob Crosby and the Bobcats" finds the tag "Bob Crosby & ...".
+            .and_then(|a| ARTIST_SEPARATORS.split(a).next())
+            .map(normalize)
             .unwrap_or_default();
-        let query = format!("{} {artist}", normalize(&track.title));
+        // The stem: Navidrome finds nothing when the query has words the tags lack.
+        let query = format!("{} {artist}", normalize(&title_stem(&track.title)));
         let found = self.call(
             "search3",
             &[
@@ -164,25 +169,49 @@ fn text<'a>(song: &'a Value, key: &str) -> &'a str {
     song[key].as_str().unwrap_or("")
 }
 
-/// The first search result whose title and one artist match the Spotify track.
+/// The best search result whose title and one artist match the Spotify track.
 pub fn pick_song(track: &Track, songs: &[Value]) -> Option<String> {
-    songs
-        .iter()
-        .find(|song| {
-            if similar(&track.title, text(song, "title")) < MATCH_THRESHOLD {
-                return false;
-            }
-            let nav_artist = text(song, "artist");
-            // The whole tag too, so a name like "Tyler, The Creator" still matches.
-            let parts: Vec<&str> = std::iter::once(nav_artist)
-                .chain(ARTIST_SEPARATORS.split(nav_artist).map(str::trim))
-                .collect();
-            track
-                .artists
+    // The best passing song, not the first: "Song" must beat "Song - Slowed" when both exist.
+    // The plain ratio breaks the tie that the stem boost gives them; the first of equals stays.
+    let scored = songs.iter().filter_map(|song| {
+        let title = text(song, "title");
+        let score = (
+            similar(&track.title, title),
+            similar_plain(&track.title, title),
+        );
+        (score.0 >= MATCH_THRESHOLD && artist_matches(track, text(song, "artist")))
+            .then_some((score, song))
+    });
+    scored
+        .reduce(|best, cur| if best.0 >= cur.0 { best } else { cur })
+        .map(|(_, song)| song_id(song))
+}
+
+fn artist_matches(track: &Track, nav_artist: &str) -> bool {
+    // "Nat King Cole" in the tag "Nat King Cole Trio", as whole words.
+    let tag = format!(" {} ", normalize(nav_artist));
+    if (track.artists.iter())
+        .any(|a| !normalize(a).is_empty() && tag.contains(&format!(" {} ", normalize(a))))
+    {
+        return true;
+    }
+    let parts: Vec<&str> = artist_parts(nav_artist).collect();
+    // Spotify's own artist names can hold several too ("A with B").
+    (track.artists.iter())
+        .flat_map(|a| artist_parts(a))
+        .any(|a| parts.iter().any(|p| similar(a, p) >= MATCH_THRESHOLD))
+}
+
+/// The whole name and its parts, so "Tyler, The Creator" still matches whole. One-word parts
+/// ("Orchestra", "Mary") and "His Orchestra" are left out: they say nothing about who plays.
+/// A one-word artist in a longer tag still matches through artist_matches' whole-word check.
+fn artist_parts(name: &str) -> impl Iterator<Item = &str> {
+    std::iter::once(name).chain(ARTIST_SEPARATORS.split(name).map(str::trim).filter(|p| {
+        p.contains(' ')
+            && !["his ", "her "]
                 .iter()
-                .any(|a| parts.iter().any(|p| similar(a, p) >= MATCH_THRESHOLD))
-        })
-        .map(song_id)
+                .any(|w| p.to_lowercase().starts_with(w))
+    }))
 }
 
 fn is_match(track: &Track, song: &Value) -> bool {
@@ -214,6 +243,101 @@ mod tests {
         let songs = [song("s1", "STARS", "¥$ / Kanye West / Ty Dolla $ign")];
         let t = track("STARS", &["Kanye West", "Ty Dolla $ign"]);
         assert_eq!(pick_song(&t, &songs).as_deref(), Some("s1"));
+    }
+
+    #[test]
+    fn find_track_ignores_subtitles_and_dash_tags_spotify_adds() {
+        let songs = [
+            song("s1", "Orange Colored Sky", "Nat King Cole"),
+            song("s2", "Keep a Knockin'", "Louis Jordan & His Tympany Five"),
+            song(
+                "s3",
+                "One More Tomorrow",
+                "Marjorie Hughes with Frankie Carle & His Orchestra",
+            ),
+        ];
+        let sky = track(
+            "Orange Colored Sky - As Heard on \u{201c}Fallout\u{201d} (Series)",
+            &["Nat King Cole"],
+        );
+        assert_eq!(pick_song(&sky, &songs).as_deref(), Some("s1"));
+        let knock = track(
+            "Keep A Knockin' (But You Can't Come In)",
+            &["Louis Jordan & His Tympany Five"],
+        );
+        assert_eq!(pick_song(&knock, &songs).as_deref(), Some("s2"));
+        let tomorrow = track("One More Tomorrow", &["Frankie Carle with Marjorie Hughes"]);
+        assert_eq!(pick_song(&tomorrow, &songs).as_deref(), Some("s3"));
+        assert_eq!(
+            pick_song(&track("Orange Colored Sky", &["Frank Sinatra"]), &songs),
+            None
+        );
+        let jordan = [song("s4", "Caldonia", "Louis Jordan and His Tympany Five")];
+        let cole = [song("s5", "Orange Colored Sky", "Nat King Cole Trio")];
+        assert_eq!(
+            pick_song(&track("Orange Colored Sky", &["Nat King Cole"]), &cole).as_deref(),
+            Some("s5")
+        );
+        let loss = [song("s6", "In the Mood", "Joe Loss & His Orchestra")];
+        let conniff = [song("s8", "Moon River", "Ray Conniff & Orchestra")];
+        assert_eq!(
+            pick_song(&track("Moon River", &["Percy Faith & Orchestra"]), &conniff),
+            None
+        );
+        let remaster = [song(
+            "s9",
+            "Orange Colored Sky - Remastered",
+            "Nat King Cole",
+        )];
+        let fallout = track(
+            "Orange Colored Sky - As Heard on Fallout",
+            &["Nat King Cole"],
+        );
+        assert_eq!(pick_song(&fallout, &remaster).as_deref(), Some("s9"));
+        assert_eq!(
+            pick_song(
+                &track("In the Mood", &["Glenn Miller & His Orchestra"]),
+                &loss
+            ),
+            None
+        );
+        let savior = [song("s10", "Savior", "Kendrick Lamar")];
+        assert_eq!(
+            pick_song(&track("Savior - Interlude", &["Kendrick Lamar"]), &savior),
+            None
+        );
+        let ninth = [song("s7", "Symphony No. 9 - IV. Presto", "Dvorak")];
+        assert_eq!(
+            pick_song(&track("Symphony No. 9 - II. Largo", &["Dvorak"]), &ninth),
+            None
+        );
+        assert_eq!(
+            pick_song(&track("Caldonia", &["Louis Jordan"]), &jordan).as_deref(),
+            Some("s4")
+        );
+    }
+
+    #[test]
+    fn find_track_prefers_the_original_over_a_slowed_version() {
+        let songs = [
+            song("s1", "Stereo Love - Slowed To Perfection", "Edward Maya"),
+            song("s2", "Stereo Love", "Edward Maya"),
+        ];
+        assert_eq!(
+            pick_song(&track("Stereo Love", &["Edward Maya"]), &songs).as_deref(),
+            Some("s2")
+        );
+        let sky = [
+            song("s3", "Orange Colored Sky - Slowed", "Nat King Cole"),
+            song("s4", "Orange Colored Sky", "Nat King Cole"),
+        ];
+        let fallout = track(
+            "Orange Colored Sky - As Heard on Fallout",
+            &["Nat King Cole"],
+        );
+        assert_eq!(pick_song(&fallout, &sky).as_deref(), Some("s4"));
+        let slowed = track("Stereo Love - Slowed To Perfection", &["Edward Maya"]);
+        assert_eq!(pick_song(&slowed, &songs[1..]), None);
     }
 
     #[test]
