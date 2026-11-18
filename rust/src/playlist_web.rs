@@ -64,10 +64,9 @@ fn status(job: Option<&Job>) -> Value {
             .filter(|l| l.starts_with("filed: ") || l.starts_with("already in the library: "))
             .count(),
         "total": total,
-        "failed": count("] not found on Soulseek")
-            + count("] search failed")
-            + count("] could not queue")
-            + count("left out: ")
+        // Only songs no source had: a Soulseek miss or a slow peer goes on to the online search.
+        "failed": count("not found online either: ")
+            + count("online download failed for ")
             + job.lines.iter().filter(|l| l.starts_with("could not file ")).count(),
         "last": job.title,
     })
@@ -350,6 +349,7 @@ mod tests {
                 "Looking for 4 missing songs on Soulseek",
                 "[1/4] downloading: A",
                 "[2/4] not found on Soulseek: B",
+                "not found online either: B",
                 "filed: A.flac",
                 "[3/4] downloading: C",
             ]

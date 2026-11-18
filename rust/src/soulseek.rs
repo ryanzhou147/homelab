@@ -25,6 +25,7 @@ const API: &str = "http://127.0.0.1:5030/slskd/api/v0";
 const AUDIO: [&str; 5] = ["flac", "mp3", "m4a", "ogg", "opus"];
 const MIN_MP3_KBPS: u64 = 192;
 const MAX_LENGTH_GAP_S: u64 = 15;
+const ONLINE_GAP_S: u64 = 5;
 // Searches are spaced out so the Soulseek server does not throttle the account.
 const SEARCH_GAP: Duration = Duration::from_secs(8);
 const SEARCH_WAIT: Duration = Duration::from_secs(45);
@@ -70,6 +71,40 @@ fn tokens(s: &str) -> Vec<String> {
         .collect()
 }
 
+fn numbers(s: &str) -> Vec<String> {
+    DIGITS
+        .find_iter(s)
+        .map(|m| m.as_str().to_string())
+        .collect()
+}
+
+/// Whether a named recording from an online search is the song: every title word and number in
+/// its name, one artist word in its people, no version word the title lacks, and a length within
+/// ONLINE_GAP_S. Stricter than a Soulseek file, because uploads include edits and covers.
+pub fn is_song(song: &Wanted, name: &str, who: &str, seconds: u64) -> bool {
+    let have: std::collections::HashSet<String> = tokens(name).into_iter().collect();
+    let people: std::collections::HashSet<String> =
+        tokens(&format!("{who} {name}")).into_iter().collect();
+    let title = words(song.title);
+    // Words that name the artist: not "the" or "and", and not title words, which every cover
+    // has ("The Ink Spots" and "I Don't Want to Set the World on Fire").
+    let all: Vec<String> = song.artists.iter().flat_map(|a| words(a)).collect();
+    let named: Vec<String> = (all.iter())
+        .filter(|w| !["the", "and"].contains(&w.as_str()) && !title.contains(w))
+        .cloned()
+        .collect();
+    let artist = if named.is_empty() { all } else { named };
+    let in_name = numbers(name);
+    !title.is_empty()
+        && title.iter().all(|w| have.contains(w))
+        && (artist.is_empty() || artist.iter().any(|w| people.contains(w)))
+        && (numbers(&NOT_WORDS.replace_all(song.title, "")))
+            .iter()
+            .all(|n| in_name.contains(n))
+        && !crate::text::other_version(name, song.title)
+        && (song.seconds == 0 || (seconds > 0 && song.seconds.abs_diff(seconds) <= ONLINE_GAP_S))
+}
+
 /// Higher is better; None means the file is not this song.
 fn score(song: &Wanted, file: &Value) -> Option<f64> {
     let name = file["filename"].as_str()?.replace('\\', "/");
@@ -88,12 +123,6 @@ fn score(song: &Wanted, file: &Value) -> Option<f64> {
         return None;
     }
     // "Butcher Pete Pt. 1" is not Pt. 2: every number of the title must be in the name too.
-    let numbers = |s: &str| {
-        DIGITS
-            .find_iter(s)
-            .map(|m| m.as_str().to_string())
-            .collect::<Vec<_>>()
-    };
     // The file name only: a "Disc 2" folder says nothing about the part.
     // shortcut: a leading track number ("2 - Butcher Pete Pt. 1.flac") still passes for Pt. 2;
     // stripping it would reject "99 Problems.flac". Upgrade if a wrong part shows up.
@@ -223,7 +252,7 @@ fn local_path(downloads: &Path, remote: &str) -> PathBuf {
     downloads.join(folder).join(parts.last().unwrap_or(&""))
 }
 
-fn safe(s: &str) -> String {
+pub fn safe(s: &str) -> String {
     let t: String = s
         .chars()
         .map(|c| if "/\\:*?\"<>|".contains(c) { '_' } else { c })
@@ -258,7 +287,7 @@ pub type OnFiled<'a> = dyn FnMut(&mut dyn FnMut(String)) -> bool + 'a;
 /// ("Time Life", "Various Artists"), and Navidrome matches the playlist by these tags.
 /// FLAC, OGG and Opus go through their own types: lofty's generic tag drops every Vorbis key it
 /// does not know ("ALBUM ARTIST", "TOTALTRACKS", MusicBrainz keys) when it saves.
-fn write_tags(path: &Path, song: &Wanted) -> Result<()> {
+pub fn write_tags(path: &Path, song: &Wanted) -> Result<()> {
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase());
     let open = || -> Result<std::fs::File> { Ok(std::fs::File::open(path)?) };
     let save = WriteOptions::default();
@@ -358,6 +387,21 @@ fn file_finished(queued: &mut Vec<(&Wanted, String)>, log: &mut dyn FnMut(String
     filed
 }
 
+/// 1 when the online sources had the song and it is now filed, else 0 (with a log line).
+fn online_get(song: &Wanted, text: &str, log: &mut dyn FnMut(String)) -> usize {
+    match crate::online::get(song, text, log) {
+        Ok(true) => 1,
+        Ok(false) => {
+            log(format!("not found online either: {text}"));
+            0
+        }
+        Err(e) => {
+            log(format!("online download failed for {text}: {e:#}"));
+            0
+        }
+    }
+}
+
 /// Searches, downloads and files each song; returns how many were filed. Songs go into the
 /// library as their downloads finish, and `on_filed` runs after every few of them (and at the
 /// end), so the playlist fills while the search goes on. `log` gets one line per song. A failed
@@ -369,18 +413,23 @@ pub fn fetch(
 ) -> Result<usize> {
     let mut queued = Vec::new();
     let (mut filed, mut unannounced, mut last_update) = (0, 0, Instant::now());
-    let mut collect =
-        |queued: &mut Vec<(&Wanted, String)>, log: &mut dyn FnMut(String), force: bool| {
-            let new = file_finished(queued, log);
-            filed += new;
-            unannounced += new;
-            if due(unannounced, last_update.elapsed(), force) {
-                // After a failure keep one, so the end of the job tries again; the next try waits
-                // for a few more songs or the time gap instead of following every song.
-                unannounced = if on_filed(log) { 0 } else { 1 };
-                last_update = Instant::now();
-            }
-        };
+    crate::online::update(log);
+    // `online`: songs filed from online searches since the last call.
+    let mut collect = |queued: &mut Vec<(&Wanted, String)>,
+                       log: &mut dyn FnMut(String),
+                       force: bool,
+                       online: usize| {
+        let new = file_finished(queued, log) + online;
+        filed += new;
+        unannounced += new;
+        if due(unannounced, last_update.elapsed(), force) {
+            // After a failure keep one, so the end of the job tries again; the next try waits
+            // for a few more songs or the time gap instead of following every song.
+            unannounced = if on_filed(log) { 0 } else { 1 };
+            last_update = Instant::now();
+        }
+    };
+    let mut online = 0;
     for (i, song) in songs.iter().enumerate() {
         let artist = song.artists.first().map_or("", String::as_str);
         let text = search_text(artist, song.title);
@@ -400,30 +449,44 @@ pub fn fetch(
                         log(format!("{n} already downloading: {text}"));
                         queued.push((song, remote));
                     }
-                    Err(e) => log(format!("{n} could not queue {text}: {e}")),
+                    Err(e) => {
+                        log(format!("{n} could not queue {text}: {e}"));
+                        online = online_get(song, &text, log);
+                    }
                 }
             }
-            Ok(None) => log(format!("{n} not found on Soulseek: {text}")),
+            Ok(None) => {
+                log(format!("{n} not found on Soulseek: {text}"));
+                online = online_get(song, &text, log);
+            }
             Err(e) if e.to_string().starts_with(NOT_RUNNING) => {
-                collect(&mut queued, log, true);
+                collect(&mut queued, log, true, 0);
                 return Err(e);
             }
-            Err(e) => log(format!("{n} search failed for {text}: {e}")),
+            Err(e) => {
+                log(format!("{n} search failed for {text}: {e}"));
+                online = online_get(song, &text, log);
+            }
         }
         sleep(SEARCH_GAP);
-        collect(&mut queued, log, false);
+        collect(&mut queued, log, false, std::mem::take(&mut online));
     }
     let start = Instant::now();
     while !queued.is_empty() && start.elapsed() < DOWNLOAD_WAIT {
         sleep(Duration::from_secs(20));
-        collect(&mut queued, log, false);
+        collect(&mut queued, log, false, 0);
     }
-    collect(&mut queued, log, true);
-    for (_, remote) in &queued {
+    collect(&mut queued, log, false, 0);
+    for (song, remote) in &queued {
         log(format!(
             "still downloading after 30 min, left out: {remote}"
         ));
+        let artist = song.artists.first().map_or("", String::as_str);
+        online += online_get(song, &search_text(artist, song.title), log);
     }
+    // shortcut: a left-out Soulseek file that arrives later stays in the downloads folder.
+    queued.clear();
+    collect(&mut queued, log, true, online);
     Ok(filed)
 }
 

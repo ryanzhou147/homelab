@@ -15,6 +15,7 @@ mod merge_id3;
 mod merge_tags;
 mod metrics;
 mod navidrome;
+mod online;
 mod playlist;
 mod playlist_web;
 mod recent;
