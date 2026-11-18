@@ -6,6 +6,7 @@ mod configure_video;
 mod discover;
 mod disk_guard;
 mod exported;
+mod fetch_missing;
 mod fill_loop;
 mod homepage_secrets;
 mod import;

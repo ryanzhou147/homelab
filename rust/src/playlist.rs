@@ -221,7 +221,7 @@ fn save<'a>(
     Ok(missing)
 }
 
-fn rescan(navidrome: &Navidrome) -> Result<()> {
+pub fn rescan(navidrome: &Navidrome) -> Result<()> {
     navidrome.call("startScan", &[])?;
     let start = Instant::now();
     while start.elapsed() < SCAN_WAIT {

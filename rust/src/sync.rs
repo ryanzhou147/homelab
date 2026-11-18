@@ -28,6 +28,9 @@ pub struct Args {
     /// Match tracks but do not write playlists or add to Lidarr.
     #[arg(long)]
     dry_run: bool,
+    /// Do not download the missing songs (Soulseek, then YouTube and SoundCloud).
+    #[arg(long)]
+    no_fetch: bool,
     /// Skip adding missing artists/albums to Lidarr.
     #[arg(long)]
     no_lidarr: bool,
@@ -307,6 +310,22 @@ fn open_lidarr(data: &Path) -> (Option<Lidarr>, HashMap<String, i64>, i64, i64) 
     (Some(lidarr), artists, quality_id, metadata_id)
 }
 
+/// After a fetch: rescans Navidrome and matches every playlist again; returns what is still missing.
+fn resync(
+    playlists: &[Value],
+    spotify: &mut impl Source,
+    navidrome: &mut Navidrome,
+) -> Result<Vec<Track>> {
+    crate::playlist::rescan(navidrome)?;
+    let mut missing = Vec::new();
+    for playlist in playlists {
+        let result = sync_playlist(playlist, spotify, navidrome, None, false)?;
+        println!("{}: {}/{} in library", result.name, result.matched, result.total);
+        missing.extend(result.missing);
+    }
+    Ok(missing)
+}
+
 pub fn run(args: Args) -> Result<()> {
     let data = data_dir();
     let spotify_creds = data.join("secrets/spotify.env");
@@ -390,6 +409,21 @@ pub fn run(args: Args) -> Result<()> {
         }
         if lidarr.is_some() && !args.dry_run {
             println!("Missing artists and albums added to Lidarr for download.");
+        }
+    }
+    if !args.dry_run && !args.no_fetch && !total_missing.is_empty() {
+        // A fetch failure (slskd stopped by the disk guard) must not fail the sync itself.
+        match crate::fetch_missing::run(&total_missing, &data.join("fetch-tried.txt")) {
+            Ok(0) => {}
+            Ok(filed) => {
+                println!("{filed} songs fetched; matching the playlists again");
+                match resync(&playlists, &mut spotify, &mut navidrome) {
+                    // The fill loop must not give spotdl the songs just fetched.
+                    Ok(still_missing) => total_missing = still_missing,
+                    Err(e) => println!("Could not match the playlists again: {e:#}"),
+                }
+            }
+            Err(e) => println!("Could not fetch the missing songs: {e:#}"),
         }
     }
     // A skipped playlist's tracks are unknown; no file keeps the fill loop from ending early.
