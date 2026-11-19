@@ -2,7 +2,7 @@
 
 # homelab
 
-Your own Netflix and Spotify, running at home.
+Your own Netflix and Spotify, at home.
 
 <a href="https://jellyfin.org"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/jellyfin.svg" height="40" alt="Jellyfin" title="Jellyfin"></a>
 <a href="https://github.com/seerr-team/seerr"><img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/seerr.svg" height="40" alt="Seerr" title="Seerr"></a>
@@ -24,68 +24,33 @@ Your own Netflix and Spotify, running at home.
 
 </div>
 
-- Watch and listen on your phone or laptop, from anywhere with an internet connection
+- Watch and listen anywhere
 - One login for every app
-- Request a show or movie from your phone: it downloads, files itself and gets subtitles
-- Spotify playlists and Liked Songs sync to Navidrome, and missing songs download; paste any public playlist link at `/playlists`
-- A home page with live downloads, new episodes and graphs
-- One Rust binary for the sync, downloads, disk guard and metrics
-- LUKS2 encryption (AES-256, Argon2id) of logins, keys and databases, behind one master password
+- Request a show or movie; it downloads with subtitles
+- Spotify playlists sync; paste any public link at `/playlists`
+- Home page with downloads and graphs
+- Encrypted logins, keys and databases
 
-## How it fits together
+![Architecture](docs/architecture.png)
 
-![Architecture: clients reach Caddy over Tailscale; Caddy serves the apps; the fetch gate holds the download apps](docs/architecture.png)
+## Install
 
-## Quick start
-
-Needs a Linux PC with Docker and Tailscale, signed in, with HTTPS Certificates turned on in the Tailscale admin. Install from the PC's main user account.
+Needs Linux, Docker and Tailscale with HTTPS certificates on. Run as your main user:
 
 ```sh
 ./scripts/setup.sh
 ```
 
-It writes `.env` with this PC's values, asks for a password, and prints the address to open.
+## Optional
 
-## Features
+`HOST` and `DATA` are in `.env`.
 
-| Feature | Turn it on |
-|---|---|
-| Movies, shows and music, one login, home page | Included |
-| Automatic movie and show downloads | Add [indexers](#indexers) |
-| Automatic music downloads | Included |
-| Spotify playlist sync | [Spotify sync](#spotify-sync) |
-| Subtitles | Included |
-| Weekly discovery playlist | [Weekly discovery](#weekly-discovery) |
-| Jellyfin with the lab login | Included |
-| Encryption | [Encryption](#encryption) |
-| Graphs in the top bar | Included |
-
-## Setup
-
-`setup.sh` installs and connects every app. These parts need your own accounts. `HOST` and `DATA` are the values in `.env`.
-
-### Indexers
-
-In Prowlarr at `https://HOST/prowlarr`, add the indexers you want. Shows and movies then download when you ask for them.
-
-### Spotify sync
-
-1. Make an app at developer.spotify.com with the redirect URI `http://127.0.0.1:18080/callback`.
-2. Run `~/.cargo/bin/homelab sync-spotify --auth`, paste the app's Client ID and secret, and sign in.
-
-### Weekly discovery
-
-1. In Navidrome, link your account to ListenBrainz: Personal > ListenBrainz.
-2. Run `./scripts/setup-explo.sh`. A playlist of new songs then arrives every Monday.
-
-### Encryption
-
-Run `sudo ./scripts/setup-master-password.sh`. It moves the lab's data into a LUKS2 vault (AES-256, Argon2id) that one master password opens. After each reboot, unlock it with `sudo ./scripts/vault-unlock.sh`. Music and video stay outside the vault.
-
-### Other settings
-
-- New password: `./scripts/set-password.sh`.
-- Albums to fetch first: list them in `DATA/priority-albums.txt`, one `Artist - Album` per line.
-- Download alerts: set `NOTIFY_CMD` in `.env`, for example to `notify-send`.
-- Graphs when another Prometheus or Grafana holds port 9090 or 3000: point it at `127.0.0.1:9102`, serve Grafana at `/grafana` with anonymous viewers, and give its data source the uid `prometheus`.
-- After a code change: `./scripts/install-homelab.sh`, then `systemctl --user restart homelab-lab-metrics`.
+- **Indexers:** add them in Prowlarr at `https://HOST/prowlarr`
+- **Spotify:** make an app at developer.spotify.com with redirect `http://127.0.0.1:18080/callback`, then run `~/.cargo/bin/homelab sync-spotify --auth`
+- **Weekly playlist:** link ListenBrainz in Navidrome, then run `./scripts/setup-explo.sh`
+- **Encryption:** `sudo ./scripts/setup-master-password.sh`; after a reboot, `sudo ./scripts/vault-unlock.sh`
+- **Password:** `./scripts/set-password.sh`
+- **Albums first:** one `Artist - Album` per line in `DATA/priority-albums.txt`
+- **Alerts:** set `NOTIFY_CMD` in `.env`, for example `notify-send`
+- **Ports 9090 or 3000 taken:** point your Prometheus at `127.0.0.1:9102` and serve Grafana at `/grafana` with anonymous viewers and data source uid `prometheus`
+- **After a code change:** `./scripts/install-homelab.sh`, then `systemctl --user restart homelab-lab-metrics`
