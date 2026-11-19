@@ -16,5 +16,6 @@ gid=${render:+$(stat -c %g "$render")}
 sed -e "s|^HOST=.*|HOST=$host|" -e "s|^TS_IP=.*|TS_IP=$ip|" \
 	-e "s|^DATA=.*|DATA=$HOME/homelab-data|" -e "s|^MEDIA=.*|MEDIA=$HOME/homelab-media|" \
 	-e "s|^LAB_USER=.*|LAB_USER=$user|" -e "s|^RENDER_DEVICE=.*|RENDER_DEVICE=$render|" \
-	-e "s|^RENDER_GID=.*|RENDER_GID=$gid|" .env.example >.env
+	-e "s|^RENDER_GID=.*|RENDER_GID=$gid|" \
+	-e "s|^NOTIFY_CMD=.*|NOTIFY_CMD=$(command -v notify-send >/dev/null && echo notify-send)|" .env.example >.env
 echo "Wrote .env: $host, login $user${render:+, GPU $render}."

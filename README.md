@@ -41,16 +41,12 @@ Needs Linux, Docker and Tailscale with HTTPS certificates on. Run as your main u
 ./scripts/setup.sh
 ```
 
-## Optional
+It sets up every app and three public indexers, then asks about Spotify sync, encryption and a weekly playlist. Torrents use your home IP address, with no VPN.
 
-`HOST` and `DATA` are in `.env`.
+## Later
 
-- **Indexers:** add them in Prowlarr at `https://HOST/prowlarr`
-- **Spotify:** make an app at developer.spotify.com with redirect `http://127.0.0.1:18080/callback`, then run `~/.cargo/bin/homelab sync-spotify --auth`
-- **Weekly playlist:** link ListenBrainz in Navidrome, then run `./scripts/setup-explo.sh`
-- **Encryption:** `sudo ./scripts/setup-master-password.sh`; after a reboot, `sudo ./scripts/vault-unlock.sh`
-- **Password:** `./scripts/set-password.sh`
-- **Albums first:** one `Artist - Album` per line in `DATA/priority-albums.txt`
-- **Alerts:** set `NOTIFY_CMD` in `.env`, for example `notify-send`
+- **After a reboot, if encrypted:** `sudo ./scripts/vault-unlock.sh`
+- **New password:** `./scripts/set-password.sh`
+- **Albums first:** one `Artist - Album` per line in `DATA/priority-albums.txt` (`DATA` is in `.env`)
 - **Ports 9090 or 3000 taken:** point your Prometheus at `127.0.0.1:9102` and serve Grafana at `/grafana` with anonymous viewers and data source uid `prometheus`
 - **After a code change:** `./scripts/install-homelab.sh`, then `systemctl --user restart homelab-lab-metrics`

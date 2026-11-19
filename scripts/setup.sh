@@ -73,7 +73,7 @@ if [ -n "$(docker compose --profile graphs ps -q prometheus grafana)" ] ||
 	! ss -Hltn '( sport = :9090 or sport = :3000 )' | grep -q .; then
 	docker compose --profile graphs up -d prometheus grafana
 else
-	echo "Ports 9090 or 3000 are taken: graphs not started (see README, Other settings)."
+	echo "Ports 9090 or 3000 are taken: graphs not started (see README)."
 fi
 
 ./scripts/install-homelab.sh
@@ -102,8 +102,8 @@ retry() {
 	echo "$out" >&2
 	return 1
 }
-# Downloads and subtitles: nothing downloads until you add Prowlarr indexers or ask for music. A
-# step that fails does not stop the rest; the next run of this script finishes it.
+# Downloads and subtitles. A step that fails does not stop the rest; the next run of this script
+# finishes it.
 later=()
 ./scripts/configure-jellyfin-sso.sh || later+=("Jellyfin sign-in")
 docker compose up -d sonarr radarr prowlarr qbittorrent
@@ -114,5 +114,22 @@ retry ~/.cargo/bin/homelab configure-video-fetch || later+=("video downloads")
 # Again, with the keys of the apps above, for the home page's cards.
 ~/.cargo/bin/homelab homepage-secrets
 docker compose up -d homepage
+
+# The parts that need you. Each asks first; Enter skips it, and the next run asks again.
+ask() { [ -t 0 ] || return 1; local a; read -rp "$1 [y/N] " a; [[ $a == [yY]* ]]; }
+if ! grep -qs '^SPOTIFY_REFRESH_TOKEN=.' "$S/spotify.env" &&
+	ask "Sync your Spotify playlists? It needs Spotify Premium and an app at developer.spotify.com with redirect URI http://127.0.0.1:18080/callback."; then
+	~/.cargo/bin/homelab sync-spotify --auth || later+=("Spotify sync")
+fi
+# Before the weekly playlist: a new password resets its settings. The vault folder is
+# root-only, so only its presence is visible from here.
+if [ ! -d /var/lib/homelab-vault ] &&
+	ask "Encrypt the lab's logins and databases with one master password? If you forget it, they are lost. After each reboot, unlock the lab with sudo ./scripts/vault-unlock.sh."; then
+	# Its folder exists from the first step on, so a failed run is not asked about again.
+	sudo ./scripts/setup-master-password.sh || echo "Encryption did not finish: see the message above."
+fi
+if [ ! -s "$DATA/explo/.env" ] && ask "Get a weekly playlist of new songs from ListenBrainz?"; then
+	./scripts/setup-explo.sh || later+=("weekly playlist")
+fi
 [ ${#later[@]} -eq 0 ] || echo "Not ready yet: ${later[*]}. Run ./scripts/setup.sh again to finish."
 echo "Running. Open https://$HOST and sign in as $LAB_USER."
