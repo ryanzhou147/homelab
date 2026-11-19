@@ -32,6 +32,10 @@ Your own Netflix and Spotify, running at home.
 - One Rust binary for the sync, downloads, disk guard and metrics
 - LUKS2 encryption (AES-256, Argon2id) of logins, keys and databases, behind one master password
 
+## How it fits together
+
+![Architecture: clients reach Caddy over Tailscale; Caddy serves the apps; the fetch gate holds the download apps](docs/architecture.png)
+
 ## Quick start
 
 Needs a Linux PC with Docker and Tailscale, signed in, with HTTPS Certificates turned on in the Tailscale admin. Install from the PC's main user account.
