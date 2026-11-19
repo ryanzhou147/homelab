@@ -1,6 +1,6 @@
 //! Wires the video download apps together, so a new install needs no clicks: qBittorrent's web
 //! settings, Sonarr's and Radarr's download client and library folder, and Prowlarr's and Seerr's
-//! links to both. The indexers stay the user's choice, in Prowlarr. Safe to run again: it adds only what is
+//! links to both, and three public indexers when Prowlarr has none. Safe to run again: it adds only what is
 //! missing, and warns about what exists but differs.
 //!
 //!     homelab configure-video-fetch
@@ -51,6 +51,10 @@ struct Arr {
     category: (&'static str, &'static str),
     root: &'static str,
 }
+
+// Prowlarr's definition names; each is a public site that needs no account. Knaben searches many
+// sites itself. Not torrentdownloads: Cloudflare now blocks it, and Prowlarr refuses to add it.
+const PUBLIC_INDEXERS: [&str; 3] = ["Knaben", "limetorrents", "thepiratebay"];
 
 fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
@@ -239,7 +243,33 @@ fn prowlarr(agent: &ureq::Agent, base: &str, data: &std::path::Path, apps: &[(&A
             .map_err(|e| anyhow!(e.to_string().replace(app_key.as_str(), "<key>")))?;
         println!("prowlarr: linked {implementation}");
     }
-    println!("prowlarr: add the indexers you want under Indexers; they reach Sonarr and Radarr by themselves");
+    add_indexers(agent, &api, &key)
+}
+
+/// Public indexers that need no account, so shows and movies download on a new install. Only
+/// when Prowlarr has none: once there are indexers, they are the user's choice.
+// shortcut: an empty Prowlarr counts as new, so the three come back after the user deletes all of
+// them and runs setup again; add a marker file if that matters.
+fn add_indexers(agent: &ureq::Agent, api: &str, key: &str) -> Result<()> {
+    let existing = send(agent, "GET", &format!("{api}/indexer"), key, None)?;
+    if existing.as_array().is_none_or(|a| !a.is_empty()) {
+        return Ok(());
+    }
+    let schema = send(agent, "GET", &format!("{api}/indexer/schema"), key, None)?;
+    for name in PUBLIC_INDEXERS {
+        let Some(def) = (schema.as_array().into_iter().flatten()).find(|d| d["definitionName"] == name) else {
+            println!("prowlarr: no {name} indexer in this Prowlarr");
+            continue;
+        };
+        let mut body = def.clone();
+        body["enable"] = json!(true);
+        body["appProfileId"] = json!(1);
+        // forceSave: a site that is down right now is still added, and works when it is back.
+        match send(agent, "POST", &format!("{api}/indexer?forceSave=true"), key, Some(&body)) {
+            Ok(_) => println!("prowlarr: added the {} indexer", def["name"].as_str().unwrap_or(name)),
+            Err(e) => println!("prowlarr: could not add {name}: {e}"),
+        }
+    }
     Ok(())
 }
 
@@ -339,6 +369,20 @@ pub fn run(args: Args) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Live check against a throwaway Prowlarr: adds the three indexers once, then nothing.
+    /// Run with PROWLARR_TEST_URL (…/api/v1) and PROWLARR_TEST_KEY and `-- --ignored`.
+    #[test]
+    #[ignore]
+    fn adds_public_indexers_to_an_empty_prowlarr_once() {
+        let api = std::env::var("PROWLARR_TEST_URL").unwrap();
+        let key = std::env::var("PROWLARR_TEST_KEY").unwrap();
+        let count = || send(&agent(), "GET", &format!("{api}/indexer"), &key, None).unwrap().as_array().unwrap().len();
+        add_indexers(&agent(), &api, &key).unwrap();
+        assert_eq!(count(), PUBLIC_INDEXERS.len());
+        add_indexers(&agent(), &api, &key).unwrap();
+        assert_eq!(count(), PUBLIC_INDEXERS.len());
+    }
 
     #[test]
     fn schema_entry_gets_the_fields() {
