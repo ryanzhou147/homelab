@@ -294,6 +294,9 @@ impl Source for SpotifyClient {
         let empty = json!({});
         while let Some(u) = url {
             let data = self.get(&u)?;
+            if first && data["items"].is_null() && data["tracks"].is_null() {
+                return public_tracks(playlist_id);
+            }
             let page = if first {
                 or(or(&data["items"], &data["tracks"]), &empty).clone()
             } else {
@@ -325,6 +328,34 @@ impl Source for SpotifyClient {
         }
         Ok(result)
     }
+}
+
+/// Spotify gives a development-mode app the songs only of playlists the user owns: for one the
+/// user follows it sends the name alone. Its public page has the songs, up to 100, without albums.
+fn public_tracks(playlist_id: &str) -> Result<Vec<Track>> {
+    let link = format!("https://open.spotify.com/playlist/{playlist_id}");
+    // A page that fails (made private, a timeout) must not stop the other playlists' sync: it
+    // counts as empty, and the next run tries again.
+    let page = match crate::playlist::from_link(&link) {
+        Ok(page) => page,
+        Err(e) => {
+            eprintln!("  Could not read the public page of {link}: {e:#}");
+            return Ok(vec![]);
+        }
+    };
+    if page.truncated {
+        eprintln!(
+            "  {}: a followed playlist; Spotify shows only its first {} songs",
+            page.name,
+            page.songs.len()
+        );
+    }
+    // Only the length: without a url the fill loop leaves the song out of spotdl's list.
+    Ok(page
+        .songs
+        .into_iter()
+        .map(|s| Track { song: Some(json!({"duration": s.seconds})), ..s.track })
+        .collect())
 }
 
 /// Fetches a playlist's tracks only when its snapshot_id changes, and serves the last copy
@@ -394,9 +425,10 @@ impl<S: Source> Source for CachedSpotify<S> {
             .as_array()
             .and_then(|ps| ps.iter().find(|p| p["id"] == playlist_id))
             .map_or(Value::Null, |p| p["snapshot_id"].clone());
+        // Not an empty list: older versions stored one for each followed playlist.
         let entry = self.cache["tracks"]
             .get(playlist_id)
-            .filter(|e| truthy(e))
+            .filter(|e| truthy(e) && truthy(&e["tracks"]))
             .cloned();
         if let Some(entry) = &entry
             && (self.limited || (truthy(&snapshot) && entry["snapshot"] == snapshot))
@@ -699,6 +731,19 @@ pub mod tests {
         let mut second = CachedSpotify::new(&mut f, &path).unwrap();
         second.playlists().unwrap();
         assert_eq!(second.tracks("p1").unwrap(), [track("x")]);
+        assert_eq!(f.calls, ["p1"]);
+    }
+
+    #[test]
+    fn cache_fetches_an_empty_track_list_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cache.json");
+        let old = json!({"playlists": [], "tracks": {"p1": {"snapshot": "s1", "tracks": []}}});
+        std::fs::write(&path, old.to_string()).unwrap();
+        let mut f = fake("s1", "x");
+        let mut c = CachedSpotify::new(&mut f, &path).unwrap();
+        c.playlists().unwrap();
+        assert_eq!(c.tracks("p1").unwrap(), [track("x")]);
         assert_eq!(f.calls, ["p1"]);
     }
 
