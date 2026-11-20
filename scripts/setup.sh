@@ -81,7 +81,7 @@ mkdir -p ~/.config/systemd/user
 ln -sf "$PWD"/systemd/*.{service,timer,path} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now homelab-download-status.timer homelab-lab-metrics.service homelab-caddy-tailscale.path \
-	homelab-playlists.service
+	homelab-playlists.service homelab-locked-alert.timer
 
 # Accounts in Jellyfin, Navidrome and Seerr; first-run.sh skips what is done, so a failed first
 # install finishes here on the next run. The home page's keys hold the Jellyfin key the steps below use.

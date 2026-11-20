@@ -1,0 +1,10 @@
+[Unit]
+Description=Alert the phone when the home lab's vault is still locked after a boot
+
+[Service]
+Type=oneshot
+ExecStart=%h/.cargo/bin/homelab locked-alert
+Environment="NOTIFY_TITLE=Home lab"
+# After a power cut the internet can need longer than the 3 minutes after boot.
+Restart=on-failure
+RestartSec=5min

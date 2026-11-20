@@ -11,6 +11,7 @@ mod fill_loop;
 mod homepage_secrets;
 mod import;
 mod lidarr;
+mod locked_alert;
 mod merge;
 mod merge_id3;
 mod merge_tags;
@@ -64,6 +65,8 @@ enum Command {
     FillLoop(fill_loop::Args),
     /// Stop the music downloads when the media disk is low.
     DiskGuard(disk_guard::Args),
+    /// Alert NOTIFY_CMD when the lab's vault is still locked after a boot.
+    LockedAlert(locked_alert::Args),
     /// Get this week's ListenBrainz recommendations into Navidrome with Explo.
     Discover(discover::Args),
     /// Add a Spotify playlist (public link or Exportify CSV) to Navidrome, fetching missing songs.
@@ -87,6 +90,7 @@ fn main() -> anyhow::Result<()> {
         Command::ConfigureVideoFetch(a) => configure_video::run(a),
         Command::FillLoop(a) => fill_loop::run(a),
         Command::DiskGuard(a) => disk_guard::run(a),
+        Command::LockedAlert(a) => locked_alert::run(a),
         Command::Discover(a) => discover::run(a),
         Command::AddPlaylist(a) => playlist::run(a),
         Command::PlaylistWeb(a) => playlist_web::run(a),

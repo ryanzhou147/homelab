@@ -1,0 +1,9 @@
+[Unit]
+Description=Check a few minutes after boot, then every 6 hours, that the home lab's vault is open
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target
