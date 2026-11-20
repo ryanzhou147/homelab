@@ -180,7 +180,9 @@ pub fn sync_playlist(
 
 fn queue_missing(queue: &mut LidarrQueue, missing: &[Track]) {
     for track in missing {
-        let Some(artist) = track.artists.first() else {
+        // No album (a followed playlist's public page has none): nothing for Lidarr to want, and
+        // adding the artist alone would download its future albums.
+        let Some(artist) = track.artists.first().filter(|_| !track.album.is_empty()) else {
             continue;
         };
         let key = artist.to_lowercase();
@@ -197,7 +199,6 @@ fn queue_missing(queue: &mut LidarrQueue, missing: &[Track]) {
             }
         }
         if let Some(id) = lidarr_id.filter(|&id| id != 0)
-            && !track.album.is_empty()
             && !queue.lidarr.want_album(id, &track.album)
         {
             eprintln!(
