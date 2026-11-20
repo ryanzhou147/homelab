@@ -12,9 +12,12 @@ NAME=homelab
 
 if mountpoint -q "$DATA"; then
   echo "Already unlocked."
+  runuser -u "$OWNER" -- docker compose up -d
 else
   [ -e "/dev/mapper/$NAME" ] || cryptsetup open "$IMAGE" "$NAME"
   mount "/dev/mapper/$NAME" "$DATA"
+  # The apps failed at boot without their data. A Docker restart starts them as a boot does: every
+  # profile (Bazarr, graphs), and not the ones stopped by hand (Soularr after the disk guard).
+  systemctl restart docker
 fi
-runuser -u "$OWNER" -- docker compose up -d
 echo "Lab unlocked and running."
