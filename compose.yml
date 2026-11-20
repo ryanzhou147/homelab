@@ -94,6 +94,10 @@ services:
       ND_MUSICFOLDER: /music
       ND_EXTAUTH_USERHEADER: Remote-User
       ND_EXTAUTH_TRUSTEDSOURCES: "@"
+      # When the lab login expires, Navidrome's own form cannot pass Authelia ("Invalid JSON"):
+      # send the page to the lab login instead, and back to the music after it.
+      # shortcut: Logout ends only the HOST session, not OLD_HOST's; chain both if OLD_HOST stays.
+      ND_EXTAUTH_LOGOUTURL: https://${HOST}/auth/logout?rd=https://${HOST}/music/
       ND_SCANSCHEDULE: 1h
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
     volumes:
