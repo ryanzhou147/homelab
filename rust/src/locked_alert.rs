@@ -24,8 +24,13 @@ fn is_mountpoint(path: &Path) -> bool {
     }
 }
 
+/// The lab has a vault, and it is not open.
+pub fn is_locked() -> bool {
+    Path::new(VAULT_DIR).is_dir() && !is_mountpoint(&data_dir())
+}
+
 pub fn run(_args: Args) -> Result<()> {
-    if !Path::new(VAULT_DIR).is_dir() || is_mountpoint(&data_dir()) {
+    if !is_locked() {
         return Ok(());
     }
     let unlock = repo_dir().join("scripts/vault-unlock.sh");

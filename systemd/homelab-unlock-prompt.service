@@ -1,0 +1,16 @@
+[Unit]
+Description=Open a terminal that unlocks the home lab when you come back to the desktop
+PartOf=graphical-session.target
+After=graphical-session.target
+# Gives up after 5 failed starts, as on a desktop without GNOME's idle monitor.
+StartLimitIntervalSec=2min
+StartLimitBurst=5
+
+[Service]
+ExecStart=%h/.cargo/bin/homelab unlock-prompt
+# GNOME's idle monitor can be missing for a moment at the session start.
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=graphical-session.target

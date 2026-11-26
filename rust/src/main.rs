@@ -27,6 +27,7 @@ mod spotify;
 mod status;
 mod sync;
 mod text;
+mod unlock_prompt;
 
 use clap::{Parser, Subcommand};
 
@@ -67,6 +68,8 @@ enum Command {
     DiskGuard(disk_guard::Args),
     /// Alert NOTIFY_CMD when the lab's vault is still locked after a boot.
     LockedAlert(locked_alert::Args),
+    /// Open a terminal that unlocks the lab when you come back to the desktop and it is locked.
+    UnlockPrompt(unlock_prompt::Args),
     /// Get this week's ListenBrainz recommendations into Navidrome with Explo.
     Discover(discover::Args),
     /// Add a Spotify playlist (public link or Exportify CSV) to Navidrome, fetching missing songs.
@@ -91,6 +94,7 @@ fn main() -> anyhow::Result<()> {
         Command::FillLoop(a) => fill_loop::run(a),
         Command::DiskGuard(a) => disk_guard::run(a),
         Command::LockedAlert(a) => locked_alert::run(a),
+        Command::UnlockPrompt(a) => unlock_prompt::run(a),
         Command::Discover(a) => discover::run(a),
         Command::AddPlaylist(a) => playlist::run(a),
         Command::PlaylistWeb(a) => playlist_web::run(a),

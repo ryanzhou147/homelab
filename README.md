@@ -45,7 +45,7 @@ It sets up every app and three public indexers, then asks about Spotify sync, en
 
 ## Later
 
-- **After a reboot, if encrypted:** `sudo ./scripts/vault-unlock.sh`
+- **After a reboot, if encrypted:** type your passwords in the window that opens at the desktop, or run `sudo ./scripts/vault-unlock.sh`
 - **New password:** `./scripts/set-password.sh`
 - **Albums first:** one `Artist - Album` per line in `DATA/priority-albums.txt` (`DATA` is in `.env`)
 - **Ports 9090 or 3000 taken:** point your Prometheus at `127.0.0.1:9102` and serve Grafana at `/grafana` with anonymous viewers and data source uid `prometheus`
